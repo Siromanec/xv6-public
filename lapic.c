@@ -199,7 +199,6 @@ cmostime(struct rtcdate *r)
   int sb, bcd;
 
   sb = cmos_read(CMOS_STATB);
-
   bcd = (sb & (1 << 2)) == 0;
 
   // make sure CMOS doesn't modify time while we read it

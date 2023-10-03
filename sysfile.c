@@ -18,6 +18,7 @@
 
 // Fetch the nth word-sized system call argument as a file descriptor
 // and return both the descriptor and the corresponding struct file.
+int LOG_SYSCALLS = 0;
 static int
 argfd(int n, int *pfd, struct file **pf)
 {
@@ -104,6 +105,7 @@ sys_close(void)
 }
 
 int
+
 sys_fstat(void)
 {
   struct file *f;
@@ -442,3 +444,53 @@ sys_pipe(void)
   fd[1] = fd1;
   return 0;
 }
+
+int
+sys_toggleLogging(void)
+{
+    LOG_SYSCALLS = !LOG_SYSCALLS;
+    return 0;
+}
+
+int
+sys_state(void)
+{
+    struct spinlock lock;
+    initlock(&lock, "state");
+    procdump();
+    acquire(&lock);
+
+    for (int i = 0; i < ncpu; ++i) {
+//        struct file *open_files[] = cpus[i].proc->ofile;
+
+        if (!(cpus[i].proc->state == RUNNING || cpus[i].proc->state == SLEEPING || cpus[i].proc->state == RUNNABLE))
+            continue;
+        int file_count = 0;
+        for (int j = 0; j < NOFILE; ++j) {
+            if (cpus[i].proc->ofile[j]!=0) {
+                if (cpus[i].proc->ofile[j]->type == FD_INODE){
+                            ++file_count;
+                }
+
+            }
+        }
+        cprintf("cpu:%d\tpid:%d\tnfiles:%d\t", cpus[i].apicid, cpus[i].proc->pid, cpus[i].proc->name, cpus[i].proc->sz, file_count);
+        cprintf("inodes:(");
+        for (int j = 0; j < NOFILE; ++j) {
+            if (cpus[i].proc->ofile[j]!=0) {
+                if (cpus[i].proc->ofile[j]->type == FD_INODE){
+                    cprintf(" %d,", cpus[i].proc->ofile[j]->ip->inum);
+                }
+
+            }
+        }
+        cprintf(")\n");
+
+
+    }
+    release(&lock);
+
+
+    return 0;
+}
+

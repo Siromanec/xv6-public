@@ -7,6 +7,8 @@
 #include "x86.h"
 #include "syscall.h"
 
+
+
 // User code makes a system call with INT T_SYSCALL.
 // System call number in %eax.
 // Arguments on the stack, from the user call to the C
@@ -39,8 +41,16 @@ fetchstr(uint addr, char **pp)
   *pp = (char*)addr;
   ep = (char*)curproc->sz;
   for(s = *pp; s < ep; s++){
-    if(*s == 0)
-      return s - *pp;
+    if(*s == 0){
+        if (LOG_SYSCALLS){
+            LOG_SYSCALLS = 0;
+            cprintf(" '%s',", *pp);
+            LOG_SYSCALLS = 1;
+        }
+        return s - *pp;
+
+
+    }
   }
   return -1;
 }
@@ -49,7 +59,13 @@ fetchstr(uint addr, char **pp)
 int
 argint(int n, int *ip)
 {
-  return fetchint((myproc()->tf->esp) + 4 + 4*n, ip);
+    int res = fetchint((myproc()->tf->esp) + 4 + 4*n, ip);
+    if (LOG_SYSCALLS){
+        LOG_SYSCALLS = 0;
+        cprintf(" %d,", *ip);
+        LOG_SYSCALLS = 1;
+    }
+  return res;
 }
 
 // Fetch the nth word-sized system call argument as a pointer
@@ -60,13 +76,36 @@ argptr(int n, char **pp, int size)
 {
   int i;
   struct proc *curproc = myproc();
- 
+  int LOG_SYSCALLS_OLD = LOG_SYSCALLS;
+  if(LOG_SYSCALLS)
+      LOG_SYSCALLS = 0;
   if(argint(n, &i) < 0)
     return -1;
+  LOG_SYSCALLS = LOG_SYSCALLS_OLD;
+
   if(size < 0 || (uint)i >= curproc->sz || (uint)i+size > curproc->sz)
     return -1;
   *pp = (char*)i;
+  if(LOG_SYSCALLS){
+      LOG_SYSCALLS = 0;
+//      if (*pp[1] == '\0')
+//          cprintf("true");
+      cprintf(" ch:%d'%s',", *pp[0], *pp);
+      LOG_SYSCALLS = 1;
+  }
   return 0;
+}
+
+int
+argtrueptr(int n, void **pp, int size)
+{
+    int i;
+    struct proc *curproc = myproc();
+    argint(n, &i);
+    if(size < 0 || (uint)i >= curproc->sz || (uint)i+size > curproc->sz)
+        return -1;
+    *pp = (void*)i;
+    return 0;
 }
 
 // Fetch the nth word-sized system call argument as a string pointer.
@@ -103,6 +142,11 @@ extern int sys_unlink(void);
 extern int sys_wait(void);
 extern int sys_write(void);
 extern int sys_uptime(void);
+extern int sys_date(void);
+extern int sys_toggleLogging(void);
+extern int sys_state(void);
+
+
 
 static int (*syscalls[])(void) = {
 [SYS_fork]    sys_fork,
@@ -126,7 +170,42 @@ static int (*syscalls[])(void) = {
 [SYS_link]    sys_link,
 [SYS_mkdir]   sys_mkdir,
 [SYS_close]   sys_close,
+[SYS_date]    sys_date,
+[SYS_toggleLogging]    sys_toggleLogging,
+[SYS_state]            sys_state,
+
 };
+
+static char* syscall_names[] = {
+        [SYS_fork]    "fork",
+        [SYS_exit]    "exit",
+        [SYS_wait]    "wait",
+        [SYS_pipe]    "pipe",
+        [SYS_read]    "read",
+        [SYS_kill]    "kill",
+        [SYS_exec]    "exec",
+        [SYS_fstat]   "fstat",
+        [SYS_chdir]   "chdir",
+        [SYS_dup]     "dup",
+        [SYS_getpid]  "getpid",
+        [SYS_sbrk]    "sbrk",
+        [SYS_sleep]   "sleep",
+        [SYS_uptime]  "uptime",
+        [SYS_open]    "open",
+        [SYS_write]   "write",
+        [SYS_mknod]   "mknod",
+        [SYS_unlink]  "unlink",
+        [SYS_link]    "link",
+        [SYS_mkdir]   "mkdir",
+        [SYS_close]   "close",
+        [SYS_date]    "date",
+        [SYS_toggleLogging]    "toggleLogging",
+        [SYS_state]    "state",
+
+
+};
+
+
 
 void
 syscall(void)
@@ -135,9 +214,22 @@ syscall(void)
   struct proc *curproc = myproc();
 
   num = curproc->tf->eax;
-  if(num > 0 && num < NELEM(syscalls) && syscalls[num]) {
-    curproc->tf->eax = syscalls[num]();
-  } else {
+
+    if(num > 0 && num < NELEM(syscalls) && syscalls[num]) {
+        if (LOG_SYSCALLS){
+            LOG_SYSCALLS = 0;
+            cprintf(" sys call %s (\n", syscall_names[num]);
+            LOG_SYSCALLS = 1;
+        }
+
+        curproc->tf->eax = syscalls[num]();
+        if (LOG_SYSCALLS){
+            LOG_SYSCALLS = 0;
+            cprintf("\n)\n");
+            LOG_SYSCALLS = 1;
+        }
+
+    } else {
     cprintf("%d %s: unknown sys call %d\n",
             curproc->pid, curproc->name, num);
     curproc->tf->eax = -1;

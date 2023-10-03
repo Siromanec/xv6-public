@@ -152,6 +152,7 @@ char*           strncpy(char*, const char*, int);
 int             argint(int, int*);
 int             argptr(int, char**, int);
 int             argstr(int, char**);
+int             argtrueptr(int, void**, int);
 int             fetchint(uint, int*);
 int             fetchstr(uint, char**);
 void            syscall(void);
@@ -188,3 +189,6 @@ void            clearpteu(pde_t *pgdir, char *uva);
 
 // number of elements in fixed-size array
 #define NELEM(x) (sizeof(x)/sizeof((x)[0]))
+
+//sysfile.c
+extern int LOG_SYSCALLS;

@@ -7,6 +7,7 @@
 #include "proc.h"
 #include "spinlock.h"
 
+//#include "file.h"
 struct {
   struct spinlock lock;
   struct proc proc[NPROC];
@@ -523,7 +524,9 @@ procdump(void)
       state = states[p->state];
     else
       state = "???";
-    cprintf("%d %s %s", p->pid, state, p->name);
+
+    cprintf("pid:%d\tstate:%s\tname:%s\tmemory:%d\t", p->pid, state, p->name, p->sz);
+
     if(p->state == SLEEPING){
       getcallerpcs((uint*)p->context->ebp+2, pc);
       for(i=0; i<10 && pc[i] != 0; i++)
