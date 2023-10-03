@@ -50,7 +50,6 @@ printf(int fd, const char *fmt, ...) {
     int pad = 0;
     int readding_padding = 0;
     char pad_char = ' ';
-    if (state == '0');
     ap = (uint *) (void *) &fmt + 1;
     for (i = 0; fmt[i]; i++) {
         c = fmt[i] & 0xff;
@@ -85,9 +84,17 @@ printf(int fd, const char *fmt, ...) {
                 ap++;
             } else if (c == 's') {
                 s = (char *) *ap;
+                if(pad!=0){
+                    int charsToAdd = pad;
+                    for (int j = 0; j < charsToAdd; ++j) {
+                        putc(fd, pad_char);
+                    }
+                }
                 ap++;
+
                 if (s == 0)
                     s = "(null)";
+
                 while (*s != 0) {
                     putc(fd, *s);
                     s++;

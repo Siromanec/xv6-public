@@ -15,7 +15,7 @@
 #include "sleeplock.h"
 #include "file.h"
 #include "fcntl.h"
-
+#include "stateinfo.h"
 // Fetch the nth word-sized system call argument as a file descriptor
 // and return both the descriptor and the corresponding struct file.
 int LOG_SYSCALLS = 0;
@@ -455,42 +455,17 @@ sys_toggleLogging(void)
 int
 sys_state(void)
 {
-    struct spinlock lock;
-    initlock(&lock, "state");
-    procdump();
-    acquire(&lock);
+//    struct stateinfo *s;
+    struct procinfo **pi_arr;
+    struct cpuinfo **cpui_arr;
 
-    for (int i = 0; i < ncpu; ++i) {
-//        struct file *open_files[] = cpus[i].proc->ofile;
+    if(argptr(0, (void*)&pi_arr,sizeof(*pi_arr)) < 0)
+        return -1;
+    if(argptr(1, (void*)&cpui_arr,sizeof(*cpui_arr)) < 0)
+        return -1;
 
-        if (!(cpus[i].proc->state == RUNNING || cpus[i].proc->state == SLEEPING || cpus[i].proc->state == RUNNABLE))
-            continue;
-        int file_count = 0;
-        for (int j = 0; j < NOFILE; ++j) {
-            if (cpus[i].proc->ofile[j]!=0) {
-                if (cpus[i].proc->ofile[j]->type == FD_INODE){
-                            ++file_count;
-                }
-
-            }
-        }
-        cprintf("cpu:%d\tpid:%d\tnfiles:%d\t", cpus[i].apicid, cpus[i].proc->pid, cpus[i].proc->name, cpus[i].proc->sz, file_count);
-        cprintf("inodes:(");
-        for (int j = 0; j < NOFILE; ++j) {
-            if (cpus[i].proc->ofile[j]!=0) {
-                if (cpus[i].proc->ofile[j]->type == FD_INODE){
-                    cprintf(" %d,", cpus[i].proc->ofile[j]->ip->inum);
-                }
-
-            }
-        }
-        cprintf(")\n");
-
-
-    }
-    release(&lock);
-
-
+//    cprintf("breaks here\n");
+    procdumpWrite(*pi_arr, *cpui_arr);
     return 0;
 }
 

@@ -9,6 +9,10 @@ struct spinlock;
 struct sleeplock;
 struct stat;
 struct superblock;
+struct cpuinfo;
+struct procinfo;
+struct stateinfo;
+
 
 // bio.c
 void            binit(void);
@@ -120,6 +124,7 @@ void            userinit(void);
 int             wait(void);
 void            wakeup(void*);
 void            yield(void);
+int             procdumpWrite(struct procinfo *pi_arr, struct cpuinfo *cpui_arr);
 
 // swtch.S
 void            swtch(struct context**, struct context*);
@@ -152,7 +157,6 @@ char*           strncpy(char*, const char*, int);
 int             argint(int, int*);
 int             argptr(int, char**, int);
 int             argstr(int, char**);
-int             argtrueptr(int, void**, int);
 int             fetchint(uint, int*);
 int             fetchstr(uint, char**);
 void            syscall(void);

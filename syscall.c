@@ -88,24 +88,10 @@ argptr(int n, char **pp, int size)
   *pp = (char*)i;
   if(LOG_SYSCALLS){
       LOG_SYSCALLS = 0;
-//      if (*pp[1] == '\0')
-//          cprintf("true");
       cprintf(" ch:%d'%s',", *pp[0], *pp);
       LOG_SYSCALLS = 1;
   }
   return 0;
-}
-
-int
-argtrueptr(int n, void **pp, int size)
-{
-    int i;
-    struct proc *curproc = myproc();
-    argint(n, &i);
-    if(size < 0 || (uint)i >= curproc->sz || (uint)i+size > curproc->sz)
-        return -1;
-    *pp = (void*)i;
-    return 0;
 }
 
 // Fetch the nth word-sized system call argument as a string pointer.

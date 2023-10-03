@@ -7,7 +7,10 @@
 #include "proc.h"
 #include "spinlock.h"
 
-//#include "file.h"
+#include "sleeplock.h"
+#include "fs.h"
+#include "file.h"
+#include "stateinfo.h"
 struct {
   struct spinlock lock;
   struct proc proc[NPROC];
@@ -524,8 +527,25 @@ procdump(void)
       state = states[p->state];
     else
       state = "???";
+    int file_count = 0;
+    for (int j = 0; j < NOFILE; ++j) {
+        if (p->ofile[j]!=0) {
+           if (p->ofile[j]->type == FD_INODE){ // FD_INODE = 1
+                  ++file_count;
+              }
+          }
+      }
+    cprintf("pid:%d\tstate:%s\tname:%s\tmemory:%d\tnfiles:%d\t", p->pid, state, p->name, p->sz, file_count);
+    cprintf("inodes:(");
+    for (int j = 0; j < NOFILE; ++j) {
+        if (p->ofile[j] != 0) {
+            if (p->ofile[j]->type == FD_INODE) {
+                cprintf(" %d,", p->ofile[j]->ip->inum);
+            }
 
-    cprintf("pid:%d\tstate:%s\tname:%s\tmemory:%d\t", p->pid, state, p->name, p->sz);
+        }
+    }
+    cprintf(")\t");
 
     if(p->state == SLEEPING){
       getcallerpcs((uint*)p->context->ebp+2, pc);
@@ -534,4 +554,76 @@ procdump(void)
     }
     cprintf("\n");
   }
+//    for (int i = 0; i < ncpu; ++i) {
+//        if (cpus[i].proc->state != RUNNING)
+//            continue;
+//        cprintf("cpu:%d\tpid:%d\n", cpus[i].apicid, cpus[i].proc->pid);
+//    }
+}
+
+int
+procdumpWrite(struct procinfo *pi_arr, struct cpuinfo *cpui_arr)
+{
+
+    static char *states[] = {
+            [UNUSED]    "unused",
+            [EMBRYO]    "embryo",
+            [SLEEPING]  "sleep ",
+            [RUNNABLE]  "runble",
+            [RUNNING]   "run   ",
+            [ZOMBIE]    "zombie"
+    };
+
+    struct proc *p;
+    char *state;
+
+    acquire(&ptable.lock);
+    int pi_arr_i = 0;
+    int cpui_arr_i = 0;
+
+    for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
+        if(p->state == UNUSED)
+            continue;
+        if(p->state >= 0 && p->state < NELEM(states) && states[p->state])
+            state = states[p->state];
+        else
+            state = "???";
+        int file_count = 0;
+        for (int j = 0; j < NOFILE; ++j) {
+            if (p->ofile[j]!=0) {
+                if (p->ofile[j]->type == FD_INODE){
+                    ++file_count;
+                }
+            }
+        }
+
+        pi_arr[pi_arr_i].file_count = file_count;
+        pi_arr[pi_arr_i].size = p->sz;
+        pi_arr[pi_arr_i].pid = p->pid;
+
+        strncpy(pi_arr[pi_arr_i].state, state, 16);
+        strncpy(pi_arr[pi_arr_i].name,p->name, 16);
+
+        for (int j = 0; j < NOFILE; ++j) {
+            if (p->ofile[j] != 0) {
+                if (p->ofile[j]->type == FD_INODE) {
+                    pi_arr[pi_arr_i].inodeIds[j] = p->ofile[j]->ip->inum;
+                }
+
+            }
+        }
+        ++pi_arr_i;
+    }
+
+    release(&ptable.lock);
+    for (int i = 0; i < ncpu; ++i) {
+        if (cpus[i].proc->state != RUNNING)
+            continue;
+
+        cpui_arr[cpui_arr_i].id = cpus[i].apicid;
+        cpui_arr[cpui_arr_i].pid = cpus[i].proc->pid;
+
+        ++cpui_arr_i;
+    }
+    return 0;
 }

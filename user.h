@@ -1,5 +1,12 @@
 struct stat;
 struct rtcdate;
+struct procinfo;
+struct cpuinfo;
+
+#define STDIN  0
+#define STDOUT 1
+#define STDERR 2
+#define NULL   0
 
 // system calls
 int fork(void);
@@ -25,7 +32,7 @@ int sleep(int);
 int uptime(void);
 int date(struct rtcdate *);
 int toggleLogging(void);
-int state(void); //todo
+int state(struct procinfo* pi_arr[], struct cpuinfo* cpui_arr[]);
 
 // ulib.c
 int stat(const char*, struct stat*);
