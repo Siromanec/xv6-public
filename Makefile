@@ -213,8 +213,8 @@ UPROGS=\
 #	_cxxmycpp\
 
 
-fs.img: mkfs README $(UPROGS) # $(UCXXPROGS)
-	./mkfs fs.img README $(UPROGS) # $(UCXXPROGS)
+fs.img: mkfs README.md $(UPROGS) # $(UCXXPROGS)
+	./mkfs fs.img README.md $(UPROGS) # $(UCXXPROGS)
 -include *.d
 
 clean:
