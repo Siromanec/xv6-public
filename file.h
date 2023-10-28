@@ -33,5 +33,7 @@ struct devsw {
 };
 
 extern struct devsw devsw[];
+//extern struct inode* swap_file;
 
+//extern ;
 #define CONSOLE 1

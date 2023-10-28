@@ -65,6 +65,8 @@ release(struct spinlock *lk)
   asm volatile("movl $0, %0" : "+m" (lk->locked) : );
 
   popcli();
+  if(holding(lk))
+    panic("still holding");
 }
 
 // Record the current call stack in pcs[] by following the %ebp chain.

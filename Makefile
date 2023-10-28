@@ -90,6 +90,7 @@ endif
 ifneq ($(shell $(CC) -dumpspecs 2>/dev/null | grep -e '[^f]nopie'),)
 CFLAGS += -fno-pie -nopie
 endif
+CPPFLAGS = $(CFLAGS)
 
 xv6.img: bootblock kernel
 	dd if=/dev/zero of=xv6.img count=10000
@@ -146,12 +147,26 @@ vectors.S: vectors.pl
 	./vectors.pl > vectors.S
 
 ULIB = ulib.o usys.o printf.o umalloc.o
+ULIBCXX = $(ULIB) stdc++.o
+
+#stdc++.o: $(ULIB)
+#	objcopy --remove-section .note.gnu.property ulib.o
+#	$(LD) $(LDFLAGS) -N -e main -Ttext 0 -o $@ $^
+#	$(OBJDUMP) -S $@ > $*.asm
+#	$(OBJDUMP) -t $@ | sed '1,/SYMBOL TABLE/d; s/ .* / /; /^$$/d' > $*.sym
 
 _%: %.o $(ULIB)
 	objcopy --remove-section .note.gnu.property ulib.o
 	$(LD) $(LDFLAGS) -N -e main -Ttext 0 -o $@ $^
 	$(OBJDUMP) -S $@ > $*.asm
 	$(OBJDUMP) -t $@ | sed '1,/SYMBOL TABLE/d; s/ .* / /; /^$$/d' > $*.sym
+
+#_cxx%: %.o $(ULIBCXX)
+#	objcopy --remove-section .note.gnu.property ulib.o
+#	$(LD) $(LDFLAGS) -N -e main -Ttext 0 -o $@ $^
+#	$(OBJDUMP) -S $@ > $*.asm
+#	$(OBJDUMP) -t $@ | sed '1,/SYMBOL TABLE/d; s/ .* / /; /^$$/d' > $*.sym
+
 
 _forktest: forktest.o $(ULIB)
 	# forktest has less library code linked in - needs to be small
@@ -191,11 +206,15 @@ UPROGS=\
 	_date\
 	_tlog\
 	_state\
-	_benchmark\
+#	_benchmark\
 
-fs.img: mkfs README $(UPROGS)
-	./mkfs fs.img README $(UPROGS)
+#
+#UCXXPROGS=\
+#	_cxxmycpp\
 
+
+fs.img: mkfs README $(UPROGS) # $(UCXXPROGS)
+	./mkfs fs.img README $(UPROGS) # $(UCXXPROGS)
 -include *.d
 
 clean:
@@ -203,7 +222,9 @@ clean:
 	*.o *.d *.asm *.sym vectors.S bootblock entryother \
 	initcode initcode.out kernel xv6.img fs.img kernelmemfs \
 	xv6memfs.img mkfs .gdbinit \
-	$(UPROGS)
+	$(UPROGS) \
+	$(UCXXPROGS)
+
 
 # make a printout
 FILES = $(shell grep -v '^\#' runoff.list)
@@ -228,7 +249,7 @@ QEMUGDB = $(shell if $(QEMU) -help | grep -q '^-gdb'; \
 	then echo "-gdb tcp::$(GDBPORT)"; \
 	else echo "-s -p $(GDBPORT)"; fi)
 ifndef CPUS
-CPUS := 2
+CPUS := 1
 endif
 QEMUOPTS = -drive file=fs.img,index=1,media=disk,format=raw -drive file=xv6.img,index=0,media=disk,format=raw -smp $(CPUS) -m 512 $(QEMUEXTRA)
 
@@ -263,9 +284,12 @@ EXTRA=\
 	ln.c ls.c mkdir.c rm.c stressfs.c usertests.c wc.c zombie.c\
 	printf.c umalloc.c\
 	myhello.c touch.c cp.c mv.c date.c tlog.c state.c\
-	benchmark.c\
 	README dot-bochsrc *.pl toc.* runoff runoff1 runoff.list\
-	.gdbinit.tmpl gdbutil\
+    .gdbinit.tmpl gdbutil\
+#	benchmark.c\
+
+#	stdc++.cpp mycpp.cpp \
+
 
 dist:
 	rm -rf dist

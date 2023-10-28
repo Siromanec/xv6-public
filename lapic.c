@@ -40,6 +40,8 @@
 #define TICR    (0x0380/4)   // Timer Initial Count
 #define TCCR    (0x0390/4)   // Timer Current Count
 #define TDCR    (0x03E0/4)   // Timer Divide Configuration
+#define SWP    (0x03F0/4)   // swap
+
 
 volatile uint *lapic;  // Initialized in mp.c
 
@@ -68,6 +70,7 @@ lapicinit(void)
   lapicw(TIMER, PERIODIC | (T_IRQ0 + IRQ_TIMER));
   lapicw(TICR, 10000000);
 
+//  lapicw(SWP, PERIODIC | (T_IRQ0 + IRQ_SWAP));
   // Disable logical interrupt lines.
   lapicw(LINT0, MASKED);
   lapicw(LINT1, MASKED);

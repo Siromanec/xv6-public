@@ -128,7 +128,7 @@ is not a correct way to do this:
 	}
 
 After setting np->state to RUNNABLE, some other CPU
-might run the process, it might exit, and then it might
+might run the process, it might exit, and theZCn it might
 get reused for a different process (with a new pid), all
 before the return statement.  So it's not safe to just
 "return np->pid". Even saving a copy of np->pid before

@@ -16,9 +16,11 @@ struct superblock {
   uint nblocks;      // Number of data blocks
   uint ninodes;      // Number of inodes.
   uint nlog;         // Number of log blocks
+  uint nswap;        // Number of swap blocks
   uint logstart;     // Block number of first log block
   uint inodestart;   // Block number of first inode block
   uint bmapstart;    // Block number of first free map block
+  uint swapstart;    // Block number of first swap block
 };
 
 #define NDIRECT 12
@@ -47,6 +49,10 @@ struct dinode {
 // Block of free map containing bit for block b
 #define BBLOCK(b, sb) (b/BPB + sb.bmapstart)
 
+//#define SPB           (BSIZE / sizeof(struct dinode))
+#define SWBLOCK(b, sb) (b*4 + sb.swapstart)
+
+
 // Directory is a file containing a sequence of dirent structures.
 #define DIRSIZ 14
 
@@ -54,4 +60,5 @@ struct dirent {
   ushort inum;
   char name[DIRSIZ];
 };
+
 

@@ -411,6 +411,7 @@ forkret(void)
     first = 0;
     iinit(ROOTDEV);
     initlog(ROOTDEV);
+    swapinit();
   }
 
   // Return to "caller", actually trapret (see allocproc).

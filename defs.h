@@ -13,7 +13,7 @@ struct cpuinfo;
 struct procinfo;
 struct stateinfo;
 
-
+#define  DEFS_HEADER
 // bio.c
 void            binit(void);
 struct buf*     bread(uint, uint);
@@ -56,6 +56,11 @@ struct inode*   nameiparent(char*, char*);
 int             readi(struct inode*, char*, uint, uint);
 void            stati(struct inode*, struct stat*);
 int             writei(struct inode*, char*, uint, uint);
+void            swapinit(void);
+void swapwrite(const char *buf, struct proc *p, pde_t *pte);
+void swapread(struct proc *p, unsigned int *pte);
+int             swaprestore();
+
 
 // ide.c
 void            ideinit(void);
@@ -190,9 +195,10 @@ void            switchuvm(struct proc*);
 void            switchkvm(void);
 int             copyout(pde_t*, uint, void*, uint);
 void            clearpteu(pde_t *pgdir, char *uva);
+int             swap();
 
 // number of elements in fixed-size array
 #define NELEM(x) (sizeof(x)/sizeof((x)[0]))
-
+#define NULL 0
 //sysfile.c
 extern int LOG_SYSCALLS;

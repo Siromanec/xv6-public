@@ -66,14 +66,20 @@ bget(uint dev, uint blockno)
   acquire(&bcache.lock);
 
   // Is the block already cached?
+//  cprintf("banzai 2\n");
+//  cprintf("dev: %d blockno: %d\n", dev, blockno);
+
   for(b = bcache.head.next; b != &bcache.head; b = b->next){
+//    cprintf("0x%x ", b);
     if(b->dev == dev && b->blockno == blockno){
       b->refcnt++;
       release(&bcache.lock);
       acquiresleep(&b->lock);
+//      cprintf("\n");
       return b;
     }
   }
+//  cprintf("\n");
 
   // Not cached; recycle an unused buffer.
   // Even if refcnt==0, B_DIRTY indicates a buffer is in use
@@ -86,6 +92,7 @@ bget(uint dev, uint blockno)
       b->refcnt = 1;
       release(&bcache.lock);
       acquiresleep(&b->lock);
+
       return b;
     }
   }
@@ -99,6 +106,9 @@ bread(uint dev, uint blockno)
   struct buf *b;
 
   b = bget(dev, blockno);
+//  cprintf("banzai 2\n");
+
+
   if((b->flags & B_VALID) == 0) {
     iderw(b);
   }

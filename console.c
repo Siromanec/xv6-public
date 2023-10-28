@@ -59,8 +59,9 @@ cprintf(char *fmt, ...)
   char *s;
 
   locking = cons.locking;
-  if(locking)
+  if (locking) {
     acquire(&cons.lock);
+  }
 
   if (fmt == 0)
     panic("null fmt");
@@ -118,6 +119,8 @@ panic(char *s)
   getcallerpcs(&s, pcs);
   for(i=0; i<10; i++)
     cprintf(" %p", pcs[i]);
+  cprintf("\n");
+
   panicked = 1; // freeze other CPU
   for(;;)
     ;

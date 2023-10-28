@@ -53,8 +53,15 @@ trap(struct trapframe *tf)
       ticks++;
       wakeup(&ticks);
       release(&tickslock);
+      lapiceoi();
+
+      if ((ticks % SWAP_INTERVAL) == 0){
+        swap();
+      }
     }
-    lapiceoi();
+    else {
+      lapiceoi();
+    }
     break;
   case T_IRQ0 + IRQ_IDE:
     ideintr();
@@ -62,6 +69,7 @@ trap(struct trapframe *tf)
     break;
   case T_IRQ0 + IRQ_IDE+1:
     // Bochs generates spurious IDE1 interrupts.
+    // isn't it equal to T_SYSCALL?
     break;
   case T_IRQ0 + IRQ_KBD:
     kbdintr();
@@ -79,6 +87,15 @@ trap(struct trapframe *tf)
     break;
 
   //PAGEBREAK: 13
+  //TODO figure out accessing to which address caused a pagefault
+    case T_PGFLT:
+      if (swaprestore() == 0) {
+        lapiceoi();
+        break;
+      }
+
+
+
   default:
     if(myproc() == 0 || (tf->cs&3) == 0){
       // In kernel, it must be our mistake.
