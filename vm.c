@@ -267,11 +267,14 @@ deallocuvm(pde_t *pgdir, uint oldsz, uint newsz) {
     if (!pte)
       a = PGADDR(PDX(a) + 1, 0, 0) - PGSIZE;
     else if ((*pte & PTE_P) != 0) {
-      pa = PTE_ADDR(*pte);
-      if (pa == 0)
-        panic("kfree");
-      char *v = P2V(pa);
-      kfree(v);
+      if (!is_swapped(pte)) {
+        pa = PTE_ADDR(*pte);
+        if (pa == 0)
+          panic("kfree");
+        char *v = P2V(pa);
+        kfree(v);
+      }
+
       *pte = 0;
     }
   }
@@ -394,11 +397,17 @@ int swap() {
 
   int accessed_page_num = 0;
   int present_page_num = 0;
-//  int *pt = (int*) 940129401;
+  static int swapped_page_num = 0;
 
-  acquire(&ptable.lock);
+//  int *pt = (int*) 940129401;
+//  int was_holding = FALSE;
+//  if(!holding(&ptable.lock))
+//    acquire(&ptable.lock);
+//  else{
+//    was_holding = TRUE;
+//  }
   for (p = ptable.proc; p < &ptable.proc[NPROC]; p++) {
-    if (p->state == UNUSED)
+    if (p->state == UNUSED || p->pid == myproc()->pid)
       continue;
 
     for (uint a = 0; a < KERNBASE; a += PGSIZE) { // swapping kernel space would be bad
@@ -415,11 +424,19 @@ int swap() {
         } else {
           char *va = (P2V(PTE_ADDR(*pte)));
           if (va >= end) {
+//            popcli();
+
+//            cprintf("cpu: %d\taccessed pages: %d\tpresent pages: %d\n", 0, accessed_page_num, present_page_num);
             *pte &= PTE_FLAGS(*pte);
-            begin_op();
+
             swapwrite(va, p, pte);
-            end_op();
-//            kfree(va); //TODO
+
+//            pushcli();
+
+//            cli();
+
+            kfree(va); //TODO
+            swapped_page_num++;
           } // clearing physical address to avoid anomalies
 
         }
@@ -429,8 +446,10 @@ int swap() {
     }
 
   }
-  release(&ptable.lock);
-  cprintf("cpu: %d\taccessed pages: %d\tpresent pages: %d\n", mycpu()->apicid, accessed_page_num, present_page_num);
+//  if(!was_holding)
+//    release(&ptable.lock);
+
+  cprintf("cpu: %d\taccessed pages: %d\tpresent pages: %d\tswappedpages:%d\n",0, accessed_page_num, present_page_num, swapped_page_num);
 
 
   return 0;
@@ -438,12 +457,30 @@ int swap() {
 
 int swaprestore() {
 //  popcli();
+  // page is swapped when it is points to 0 address and is present
   struct proc* p = myproc();
-//  void* allocated_page = swapread(p, PGROUNDDOWN(rcr2()));
-  pte_t *pte = walkpgdir(p->pgdir, (void *) PGROUNDDOWN(rcr2()), 0);
+  uint raw_va = rcr2();
+  void* va = (void *) PGROUNDDOWN(raw_va);
+  pte_t *pte = walkpgdir(p->pgdir, va, 0);
   if ((*pte & PTE_P)) {
-//    *pte |= (uint) V2P(allocated_page);
-//    swapread(p, pte);
+//      *pte |= (uint) V2P(allocated_page);
+    cprintf("PRESENT!\n");
+    cprintf("pre: 0x%x\n", PTE_ADDR(*pte));
+    uint pa = V2P(swapread(p, pte));
+    *pte &= !PTE_P;
+
+
+    mappages(p->pgdir, va, PGSIZE, pa, PTE_FLAGS(*pte));
+    cprintf("post: 0x%x\n", PTE_ADDR(*pte));
+
+    cprintf("try to read addr: 0x%x \n", raw_va);
+    cprintf("*addr: 0x%x\n", *((int*)raw_va));
+    cprintf("read success\n");
+
+
+
+//    lcr3(V2P(p->pgdir));
+//    lcr2(raw_va);
     return 0;
   }
     return -1;

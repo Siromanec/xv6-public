@@ -23,3 +23,4 @@
 #define SYS_date   22
 #define SYS_toggleLogging  23
 #define SYS_state  24
+#define SYS_swap   25

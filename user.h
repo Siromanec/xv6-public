@@ -40,6 +40,8 @@ int uptime(void);
 int date(struct rtcdate *);
 int toggleLogging(void);
 int state(struct procinfo* pi_arr[], struct cpuinfo* cpui_arr[]);
+int swap(void);
+
 
 // ulib.c
 int stat(const char*, struct stat*);

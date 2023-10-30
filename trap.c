@@ -46,6 +46,7 @@ trap(struct trapframe *tf)
     return;
   }
 
+  int pgflt_success = FALSE;
   switch(tf->trapno){
   case T_IRQ0 + IRQ_TIMER:
     if(cpuid() == 0){
@@ -53,16 +54,21 @@ trap(struct trapframe *tf)
       ticks++;
       wakeup(&ticks);
       release(&tickslock);
-      lapiceoi();
 
-      if ((ticks % SWAP_INTERVAL) == 0){
-        swap();
-      }
+
     }
-    else {
-      lapiceoi();
-    }
-    break;
+//    else if(cpuid() == 1){
+//      acquire(&tickslock);
+//
+//      if (ticks !=0 && (ticks % SWAP_INTERVAL) == 0){
+//        swap();
+//      }
+//      release(&tickslock);
+//
+//    }
+    lapiceoi();
+
+      break;
   case T_IRQ0 + IRQ_IDE:
     ideintr();
     lapiceoi();
@@ -89,10 +95,22 @@ trap(struct trapframe *tf)
   //PAGEBREAK: 13
   //TODO figure out accessing to which address caused a pagefault
     case T_PGFLT:
+      cprintf("pid %d %s: trap %d err %d on cpu %d "
+              "eip 0x%x\n",
+              myproc()->pid, myproc()->name, tf->trapno,
+              tf->err, cpuid(), tf->eip);
       if (swaprestore() == 0) {
+        pgflt_success = TRUE;
         lapiceoi();
+        yield();
+
         break;
       }
+    case T_DBLFLT:
+      cprintf("unexpected trap %d from cpu %d eip %x (cr2=0x%x)\n",
+              tf->trapno, cpuid(), tf->eip, rcr2());
+      panic("DOUBLE FAULT!\n");
+      break;
 
 
 
@@ -120,7 +138,7 @@ trap(struct trapframe *tf)
   // Force process to give up CPU on clock tick.
   // If interrupts were on while locks held, would need to check nlock.
   if(myproc() && myproc()->state == RUNNING &&
-     tf->trapno == T_IRQ0+IRQ_TIMER)
+      (tf->trapno == T_IRQ0+IRQ_TIMER || pgflt_success))
     yield();
 
   // Check if the process has been killed since we yielded

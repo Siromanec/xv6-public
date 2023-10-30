@@ -4,6 +4,8 @@
 
 #ifndef XV6_PUBLIC_SWAP_H
 #define XV6_PUBLIC_SWAP_H
+#define SWBLOCKS (PGSIZE / BSIZE)
+
 struct swap_s {
   uint block; // first block of four that stores the page
   uint va; // virtual address it represents
@@ -15,7 +17,6 @@ struct swap_s {
   struct swap_s *next;
 };
 
-#define SWBLOCKS (PGSIZE / BSIZE)
 
 
 

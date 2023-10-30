@@ -131,6 +131,8 @@ extern int sys_uptime(void);
 extern int sys_date(void);
 extern int sys_toggleLogging(void);
 extern int sys_state(void);
+extern int sys_swap(void);
+
 
 
 
@@ -159,6 +161,8 @@ static int (*syscalls[])(void) = {
 [SYS_date]    sys_date,
 [SYS_toggleLogging]    sys_toggleLogging,
 [SYS_state]            sys_state,
+[SYS_swap]             sys_swap,
+
 
 };
 
@@ -187,6 +191,8 @@ static char* syscall_names[] = {
         [SYS_date]    "date",
         [SYS_toggleLogging]    "toggleLogging",
         [SYS_state]    "state",
+        [SYS_swap]     "swap",
+
 
 
 };

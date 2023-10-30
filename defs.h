@@ -57,9 +57,11 @@ int             readi(struct inode*, char*, uint, uint);
 void            stati(struct inode*, struct stat*);
 int             writei(struct inode*, char*, uint, uint);
 void            swapinit(void);
-void swapwrite(const char *buf, struct proc *p, pde_t *pte);
-void swapread(struct proc *p, unsigned int *pte);
+void            swapwrite(const char *buf, struct proc *p, pde_t *pte);
+void * swapread(struct proc *p, unsigned int *pte);
+int             is_swapped(pde_t *pte);
 int             swaprestore();
+
 
 
 // ide.c
@@ -202,3 +204,5 @@ int             swap();
 #define NULL 0
 //sysfile.c
 extern int LOG_SYSCALLS;
+#define FALSE 0
+#define TRUE  1

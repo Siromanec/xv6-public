@@ -469,3 +469,9 @@ sys_state(void)
     return 0;
 }
 
+int
+sys_swap(void)
+{
+  swap();
+  return 0;
+}

@@ -161,6 +161,8 @@ main(void)
       break;
     }
   }
+//  if(fork1() == 0)
+//    runcmd(parsecmd("swap&"));
 
   // Read and run input commands.
   while(getcmd(buf, sizeof(buf)) >= 0){
