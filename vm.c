@@ -267,14 +267,14 @@ deallocuvm(pde_t *pgdir, uint oldsz, uint newsz) {
     if (!pte)
       a = PGADDR(PDX(a) + 1, 0, 0) - PGSIZE;
     else if ((*pte & PTE_P) != 0) {
-      if (!is_swapped(pte)) {
+      if (!(*pte & PTE_S)) {
         pa = PTE_ADDR(*pte);
         if (pa == 0)
-          panic("kfree");
+          panic("deallocuvm");
         char *v = P2V(pa);
         kfree(v);
       }
-
+      //TODO free the swapped block
       *pte = 0;
     }
   }
@@ -392,6 +392,7 @@ copyout(pde_t *pgdir, uint va, void *p, uint len) {
 
 //#include "file.h"
 extern char end[];
+
 int swap() {
   struct proc *p;
 
@@ -413,7 +414,7 @@ int swap() {
     for (uint a = 0; a < KERNBASE; a += PGSIZE) { // swapping kernel space would be bad
       pte_t *pte = walkpgdir(p->pgdir, (void *) a, 0); //returns number of allocated pde entries
 
-      if (pte == 0) {
+      if (pte == NULL) {
         continue;
       }
 
@@ -428,13 +429,9 @@ int swap() {
 
 //            cprintf("cpu: %d\taccessed pages: %d\tpresent pages: %d\n", 0, accessed_page_num, present_page_num);
             *pte &= PTE_FLAGS(*pte);
+            *pte |= PTE_S;
 
             swapwrite(va, p, pte);
-
-//            pushcli();
-
-//            cli();
-
             kfree(va); //TODO
             swapped_page_num++;
           } // clearing physical address to avoid anomalies
@@ -449,7 +446,8 @@ int swap() {
 //  if(!was_holding)
 //    release(&ptable.lock);
 
-  cprintf("cpu: %d\taccessed pages: %d\tpresent pages: %d\tswappedpages:%d\n",0, accessed_page_num, present_page_num, swapped_page_num);
+  cprintf("cpu: %d\taccessed pages: %d\tpresent pages: %d\tswappedpages:%d\n", 0, accessed_page_num, present_page_num,
+          swapped_page_num);
 
 
   return 0;
@@ -458,31 +456,54 @@ int swap() {
 int swaprestore() {
 //  popcli();
   // page is swapped when it is points to 0 address and is present
-  struct proc* p = myproc();
+  struct proc *p = myproc();
   uint raw_va = rcr2();
-  void* va = (void *) PGROUNDDOWN(raw_va);
-  pte_t *pte = walkpgdir(p->pgdir, va, 0);
-  if ((*pte & PTE_P)) {
+  void *va = (void *) PGROUNDDOWN(raw_va);
+  if ((uint) va >= KERNBASE)
+    return -1;
+  cprintf("raw_va: 0x%x\n", raw_va);
+  cprintf("va: 0x%x\n", va);
+
+  pte_t *pte;
+  if ((pte = walkpgdir(p->pgdir, va, 0)) == NULL)
+    return -1;
+
+//  for (void * i = (void *) 0; i < (void * ) KERNBASE; i += PGSIZE) {
+//
+//    pte_t *pte_ = walkpgdir(p->pgdir, i, 0);
+//    if (pte_ != NULL && (*pte_ & PTE_P))
+//      cprintf("pte: 0x%x present: 0x%x\n", *pte_,i);
+////    else
+////      cprintf("pte: 0x%x not present: 0x%x\n", *pte_, i);
+////     WHY SO MANY PAGES ARE PRESENT?
+//
+//
+//  }
+  if ((*pte & PTE_S)) {
 //      *pte |= (uint) V2P(allocated_page);
     cprintf("PRESENT!\n");
-    cprintf("pre: 0x%x\n", PTE_ADDR(*pte));
-    uint pa = V2P(swapread(p, pte));
-    *pte &= !PTE_P;
+    cprintf("pre: 0x%x\n", (*pte));
+    char *pa = (swapread(p, pte));
+    *pte &= !(PTE_P | PTE_S);
 
 
-    mappages(p->pgdir, va, PGSIZE, pa, PTE_FLAGS(*pte));
+    if (mappages(p->pgdir, (char *) va, PGSIZE, V2P(pa), PTE_W | PTE_U) < 0) {
+      cprintf("swaprestore out of memory (1)\n");
+//      deallocuvm(pgdir, newsz, oldsz);
+      kfree(pa);
+      return -1;
+    }
+//    mappages(, va, PGSIZE, pa, PTE_FLAGS(*pte));
     cprintf("post: 0x%x\n", PTE_ADDR(*pte));
-
+//s
     cprintf("try to read addr: 0x%x \n", raw_va);
-    cprintf("*addr: 0x%x\n", *((int*)raw_va));
+    cprintf("*addr: 0x%x\n", *((int *) raw_va));
     cprintf("read success\n");
 
 
-
-//    lcr3(V2P(p->pgdir));
-//    lcr2(raw_va);
+//    switchuvm(p);
     return 0;
   }
-    return -1;
+  return -1;
 //  pushcli();
 }

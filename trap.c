@@ -93,31 +93,32 @@ trap(struct trapframe *tf)
     break;
 
   //PAGEBREAK: 13
-  //TODO figure out accessing to which address caused a pagefault
+  //TODO figure out accessing to which address caused a pagefault DONE
     case T_PGFLT:
       cprintf("pid %d %s: trap %d err %d on cpu %d "
-              "eip 0x%x\n",
+              "eip 0x%x -- trying to handle\n",
               myproc()->pid, myproc()->name, tf->trapno,
               tf->err, cpuid(), tf->eip);
       if (swaprestore() == 0) {
-        pgflt_success = TRUE;
-        lapiceoi();
-        yield();
+//        pgflt_success = TRUE;
 
-        break;
+//        lapiceoi();
+//        switchuvm(myproc());
+        return;
       }
+      goto ERROR_GOTO;
     case T_DBLFLT:
-      cprintf("unexpected trap %d from cpu %d eip %x (cr2=0x%x)\n",
+      cprintf("unexpected trap %d from cpu %d eip 0x%x (cr2=0x%x)\n",
               tf->trapno, cpuid(), tf->eip, rcr2());
       panic("DOUBLE FAULT!\n");
-      break;
+//      break;
 
 
-
+ERROR_GOTO:
   default:
     if(myproc() == 0 || (tf->cs&3) == 0){
       // In kernel, it must be our mistake.
-      cprintf("unexpected trap %d from cpu %d eip %x (cr2=0x%x)\n",
+      cprintf("unexpected trap %d from cpu %d eip 0x%x (cr2=0x%x)\n",
               tf->trapno, cpuid(), tf->eip, rcr2());
       panic("trap");
     }

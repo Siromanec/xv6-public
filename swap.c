@@ -6,7 +6,7 @@
 int main(void){
 
 //  for(;;){
-    sleep(500);
+//    sleep(500);
     swap();
 //  }
   exit();
