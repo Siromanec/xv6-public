@@ -8,6 +8,7 @@ int main(void){
 //  for(;;){
 //    sleep(500);
     swap();
+    swap();
 //  }
   exit();
 }

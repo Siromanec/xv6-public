@@ -10,7 +10,7 @@
 #include "sleeplock.h"
 #include "fs.h"
 #include "file.h"
-
+#include "debug.h"
 extern struct {
   struct spinlock lock;
   struct proc proc[NPROC];
@@ -322,11 +322,14 @@ copyuvm(pde_t *pgdir, uint sz) {
 
   if ((d = setupkvm()) == 0)
     return 0;
-  for (i = 0; i < sz; i += PGSIZE) {
+  for (i = PGSIZE; i < sz; i += PGSIZE) {
     if ((pte = walkpgdir(pgdir, (void *) i, 0)) == 0)
       panic("copyuvm: pte should exist");
+    if (*pte & PTE_S){}//TODO handle this case; possible solution copy all swap entries
     if (!(*pte & PTE_P))
-      panic("copyuvm: page not present");
+      continue;
+//      panic("copyuvm: page not present");
+//unsigned char c;
     pa = PTE_ADDR(*pte);
     flags = PTE_FLAGS(*pte);
     if ((mem = kalloc()) == 0)
@@ -408,10 +411,11 @@ int swap() {
 //    was_holding = TRUE;
 //  }
   for (p = ptable.proc; p < &ptable.proc[NPROC]; p++) {
-    if (p->state == UNUSED || p->pid == myproc()->pid)
+    if (p->state == UNUSED)// || p->pid == myproc()->pid)
       continue;
 
-    for (uint a = 0; a < KERNBASE; a += PGSIZE) { // swapping kernel space would be bad
+    for (uint a = 0;
+         a < PGROUNDUP(p->sz); a += PGSIZE) { // swapping up to program size should be faster// swapping kernel space would be bad
       pte_t *pte = walkpgdir(p->pgdir, (void *) a, 0); //returns number of allocated pde entries
 
       if (pte == NULL) {
@@ -424,17 +428,18 @@ int swap() {
           ++accessed_page_num;
         } else {
           char *va = (P2V(PTE_ADDR(*pte)));
-          if (va >= end) {
-//            popcli();
+//          if (va >= end) {
+          *pte &= PTE_FLAGS(*pte);
+          *pte &= !(PTE_P); // must be set to not present to cause a pagefault
+          *pte |= PTE_S;
+#ifdef DEBUG_SWAP
+          cprintf("swap: swapping proc: %s va: 0x%x\n", p->name, a);
+#endif
+          swapwrite(va, p, (void *  )a);
 
-//            cprintf("cpu: %d\taccessed pages: %d\tpresent pages: %d\n", 0, accessed_page_num, present_page_num);
-            *pte &= PTE_FLAGS(*pte);
-            *pte |= PTE_S;
-
-            swapwrite(va, p, pte);
-            kfree(va); //TODO
-            swapped_page_num++;
-          } // clearing physical address to avoid anomalies
+          kfree(va); //TODO
+          swapped_page_num++;
+//          } // clearing physical address to avoid anomalies
 
         }
 
@@ -446,64 +451,74 @@ int swap() {
 //  if(!was_holding)
 //    release(&ptable.lock);
 
-  cprintf("cpu: %d\taccessed pages: %d\tpresent pages: %d\tswappedpages:%d\n", 0, accessed_page_num, present_page_num,
+#ifdef DEBUG_SWAP
+  cprintf("swap: accessed pages: %d\tpresent pages: %d\tswappedpages:%d\n", accessed_page_num, present_page_num,
           swapped_page_num);
-
+#endif
 
   return 0;
 }
 
-int swaprestore() {
-//  popcli();
+int swaprestore(uint addr) {
   // page is swapped when it is points to 0 address and is present
   struct proc *p = myproc();
-  uint raw_va = rcr2();
+  uint raw_va = addr;
   void *va = (void *) PGROUNDDOWN(raw_va);
   if ((uint) va >= KERNBASE)
     return -1;
-  cprintf("raw_va: 0x%x\n", raw_va);
-  cprintf("va: 0x%x\n", va);
 
   pte_t *pte;
-  if ((pte = walkpgdir(p->pgdir, va, 0)) == NULL)
+  if ((pte = walkpgdir(p->pgdir, va, FALSE)) == NULL)
     return -1;
 
-//  for (void * i = (void *) 0; i < (void * ) KERNBASE; i += PGSIZE) {
-//
-//    pte_t *pte_ = walkpgdir(p->pgdir, i, 0);
-//    if (pte_ != NULL && (*pte_ & PTE_P))
-//      cprintf("pte: 0x%x present: 0x%x\n", *pte_,i);
-////    else
-////      cprintf("pte: 0x%x not present: 0x%x\n", *pte_, i);
-////     WHY SO MANY PAGES ARE PRESENT?
-//
-//
-//  }
+
   if ((*pte & PTE_S)) {
-//      *pte |= (uint) V2P(allocated_page);
-    cprintf("PRESENT!\n");
-    cprintf("pre: 0x%x\n", (*pte));
-    char *pa = (swapread(p, pte));
-    *pte &= !(PTE_P | PTE_S);
+#ifdef DEBUG_SWAPRESTORE
+    cprintf("swaprestore: raw_va: 0x%x\n", raw_va);
+    cprintf("swaprestore: va: 0x%x\n", va);
+    cprintf("swaprestore: *pte: 0x%x\n", *pte);
+    cprintf("swaprestore: PRESENT!\n");
+    cprintf("swaprestore: pre: 0x%x\n", (PTE_ADDR(*pte)));
+#endif
+    char *pa = swapread(p, va);
+    *pte &= !(PTE_S);
 
 
     if (mappages(p->pgdir, (char *) va, PGSIZE, V2P(pa), PTE_W | PTE_U) < 0) {
       cprintf("swaprestore out of memory (1)\n");
-//      deallocuvm(pgdir, newsz, oldsz);
       kfree(pa);
       return -1;
     }
-//    mappages(, va, PGSIZE, pa, PTE_FLAGS(*pte));
-    cprintf("post: 0x%x\n", PTE_ADDR(*pte));
-//s
-    cprintf("try to read addr: 0x%x \n", raw_va);
-    cprintf("*addr: 0x%x\n", *((int *) raw_va));
-    cprintf("read success\n");
-
-
-//    switchuvm(p);
+#ifdef DEBUG_SWAPRESTORE
+    cprintf("swaprestore: post: 0x%x\n", PTE_ADDR(*pte));
+#endif
     return 0;
   }
   return -1;
-//  pushcli();
+}
+
+int lazyalloc(uint addr) {
+
+  struct proc *p = myproc();
+  uint raw_va = addr;
+  void *va = (void *) PGROUNDDOWN(raw_va);
+  if ((uint) va >= KERNBASE)
+    return -1;
+
+  if ((uint) va > p->sz)
+    return -1;
+
+  char *mem;
+  mem = kalloc();
+  if (mem == 0) {
+    cprintf("lazyalloc out of memory\n");
+    return -1;
+  }
+  memset(mem, 0, PGSIZE);
+  if (mappages(p->pgdir, (char *) va, PGSIZE, V2P(mem), PTE_W | PTE_U) < 0) {
+    cprintf("lazyalloc out of memory (2)\n");
+    kfree(mem);
+    return -1;
+  }
+  return 0;
 }

@@ -22,10 +22,11 @@
 #include "file.h"
 #include "memlayout.h"
 #include "swap.h"
-
+#include "debug.h"
 #define min(a, b) ((a) < (b) ? (a) : (b))
 
 static void itrunc(struct inode *);
+
 struct swap_s;
 //struct spinlock;
 
@@ -37,6 +38,7 @@ struct {
   struct swap_s buf[512 / SWBLOCKS];
   struct swap_s head;
 } swapll;
+
 // Read the super block.
 void
 readsb(int dev, struct superblock *sb) {
@@ -655,8 +657,6 @@ nameiparent(char *path, char *name) {
 }
 
 
-
-
 void swapinit(void) {
 //  begin_op();
 ////  struct inode * ip = ialloc(T_FILE);
@@ -699,10 +699,13 @@ void swapinit(void) {
 
 
 // assumes input buffer is of size PGSIZE
-void swapwrite(const char *buf, struct proc *p, pde_t *pte) {
+void swapwrite(const char *buf, struct proc *p, void *va) {
   struct swap_s *s;
 
   struct buf *bp;
+
+  if ((uint) (va) % PGSIZE)
+    panic("swapwrite va");
 //  acquire(&swapll.lock);
 //  for (s = swapll.head.next; s != &swapll.head; s = s->next) {
   for (int j = 0; j < (sb.nswap / (SWBLOCKS)); j++) {
@@ -721,11 +724,9 @@ void swapwrite(const char *buf, struct proc *p, pde_t *pte) {
       }
       end_op();
 
-//      s->va = (uint)(buf);
-      s->pte = pte;
+      s->va = va;
       s->proc = p;
 //      releasesleep(&s->lock);
-//      release(&swapll.lock);
 
       return;
     }
@@ -733,20 +734,35 @@ void swapwrite(const char *buf, struct proc *p, pde_t *pte) {
   panic("swapwrite");
 
 }
+//swapinherit?
+void swapcopy(struct proc * parent, struct proc * child){
 
+}
 // reads into self-allocated page and returns whatever kalloc returns
-void * swapread(struct proc *p, pte_t *pte) {
+// va is rounded down to beginning of the page
+void *swapread(struct proc *p, void *va) {
   //TODO making the swapped address valid again
   //I think its a matter of setting another physical address in the pagetable
   struct swap_s *s;
   struct buf *bp;
-  cprintf("0x%x\n", pte);
+  if ((uint) (va) % PGSIZE)
+    panic("swapread va");
+#ifdef DEBUG_SWAPREAD
+  cprintf("swapread: 0x%x\n", va);
+  cprintf("swapread: proc name: %s proc pid: %d\n", p->name, p->pid);
+#endif
   for (int j = 0; j < (sb.nswap / SWBLOCKS); j++) {
     s = &swapll.buf[j];
 //    cprintf("0x%x ", s->pte);
-    if (s->proc!=NULL && s->proc->pid == p->pid && s->pte == pte) {
+#ifdef DEBUG_SWAPREAD
+    if (s->proc != NULL)
+      cprintf("swapread: pid: %d va: 0x%x\n", s->proc->pid, s->va);
+#endif
+    if (s->proc != NULL && s->proc->pid == p->pid && s->va == va) {
 //      bwrite();
-      cprintf("FOUND!\n");
+#ifdef DEBUG_SWAPREAD
+      cprintf("swapread: FOUND!\n");
+#endif
       void *pg = kalloc();
       acquiresleep(&s->lock);
       for (int i = 0; i < SWBLOCKS; ++i) {
@@ -754,33 +770,28 @@ void * swapread(struct proc *p, pte_t *pte) {
         memmove(pg + i * BSIZE, bp->data, BSIZE);
         brelse(bp);
       }
-//      cprintf("0x%x\n", *pte);
-
-//      *pte |= V2P((uint) pg);
-
       releasesleep(&s->lock);
       s->proc = NULL;
-//      return pg;
       return pg;
     }
   }
   panic("swapread");
 }
 
-int is_swapped(pte_t* pte) {
-  struct swap_s *s;
-
-//  acquire(&swapll.lock);
-//  for (s = swapll.head.next; s != &swapll.head; s = s->next) {
-  for (int j = 0; j < (sb.nswap / (SWBLOCKS)); j++) {
-    s = &swapll.buf[j];
-    if (s->pte == pte){
-      return TRUE;
-    }
-  }
-  return FALSE;
-
-}
+//int is_swapped(pte_t* pte) {
+//  struct swap_s *s;
+//
+////  acquire(&swapll.lock);
+////  for (s = swapll.head.next; s != &swapll.head; s = s->next) {
+//  for (int j = 0; j < (sb.nswap / (SWBLOCKS)); j++) {
+//    s = &swapll.buf[j];
+//    if (s->pte == pte){
+//      return TRUE;
+//    }
+//  }
+//  return FALSE;
+//
+//}
 //TODO operation case for when all blocks are filled
 //  for(uint snum = 0; snum < sb.nswap/4; snum++){
 //    bp = bread(dev, IBLOCK(inum, sb));

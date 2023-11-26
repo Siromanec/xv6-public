@@ -13,6 +13,7 @@ void freerange(void *vstart, void *vend);
 extern char end[]; // first address after kernel loaded from ELF file
                    // defined by the kernel linker script in kernel.ld
 
+unsigned short phys_page_refcount[PHYSTOP/PGSIZE]; // short, because not more than 64 processes
 struct run {
   struct run *next;
 };
@@ -75,8 +76,12 @@ kfree(char *v)
   if(kmem.use_lock)
     acquire(&kmem.lock);
   r = (struct run*)v;
-  r->next = kmem.freelist;
-  kmem.freelist = r;
+  if (phys_page_refcount[V2P(r) / PGSIZE] == 0) {
+    r->next = kmem.freelist;
+    kmem.freelist = r;
+  } else {
+    phys_page_refcount[V2P(r) / PGSIZE]--;
+  }
   if(kmem.use_lock)
     release(&kmem.lock);
 }
@@ -92,8 +97,10 @@ kalloc(void)
   if(kmem.use_lock)
     acquire(&kmem.lock);
   r = kmem.freelist;
-  if(r)
+  if (r) {
     kmem.freelist = r->next;
+    phys_page_refcount[V2P(r)/ PGSIZE] = 1;
+  }
   if(kmem.use_lock)
     release(&kmem.lock);
   return (char*)r;

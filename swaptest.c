@@ -7,14 +7,18 @@
 
 int main(void) {
   uint size = 4096 * 4;
-  char * my_mem = malloc(size);
+  int * my_mem = malloc(size);
 
   for (int i = 0; i < size; ++i) {
     if (!(i%8))
       sleep(1);
-    *(my_mem + i) = 'c';
+    *(my_mem + i) = i;
   }
-  printf(STDOUT, "FIN\n");
+  uint cumsum = 0;
+  for (int i = size - 1; i >= 0; --i) {
+    cumsum += my_mem[i];
+  }
+  printf(STDOUT, "FIN CUMSUM = %u\n", cumsum);
   free(my_mem);
   exit();
 }

@@ -57,10 +57,10 @@ int             readi(struct inode*, char*, uint, uint);
 void            stati(struct inode*, struct stat*);
 int             writei(struct inode*, char*, uint, uint);
 void            swapinit(void);
-void            swapwrite(const char *buf, struct proc *p, pde_t *pte);
-void * swapread(struct proc *p, unsigned int *pte);
+void            swapwrite(const char *buf, struct proc *p, void *va);
+void * swapread(struct proc *p, void *va);
 int             is_swapped(pde_t *pte);
-int             swaprestore();
+int swaprestore(uint addr);
 
 
 
@@ -198,6 +198,7 @@ void            switchkvm(void);
 int             copyout(pde_t*, uint, void*, uint);
 void            clearpteu(pde_t *pgdir, char *uva);
 int             swap();
+int             lazyalloc(uint addr);
 
 // number of elements in fixed-size array
 #define NELEM(x) (sizeof(x)/sizeof((x)[0]))

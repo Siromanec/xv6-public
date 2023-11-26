@@ -81,6 +81,10 @@ argptr(int n, char **pp, int size)
       LOG_SYSCALLS = 0;
   if(argint(n, &i) < 0)
     return -1;
+  if (i < PGSIZE) {
+    cprintf("NULL dereferencing");
+    return -2;
+  }
   LOG_SYSCALLS = LOG_SYSCALLS_OLD;
 
   if(size < 0 || (uint)i >= curproc->sz || (uint)i+size > curproc->sz)

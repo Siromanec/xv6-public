@@ -68,7 +68,7 @@ runcmd(struct cmd *cmd)
   struct pipecmd *pcmd;
   struct redircmd *rcmd;
 
-  if(cmd == 0)
+  if(cmd == NULL)
     exit();
 
   switch(cmd->type){
@@ -77,10 +77,10 @@ runcmd(struct cmd *cmd)
 
   case EXEC:
     ecmd = (struct execcmd*)cmd;
-    if(ecmd->argv[0] == 0)
+    if(ecmd->argv[0] == NULL)
       exit();
     exec(ecmd->argv[0], ecmd->argv);
-    printf(2, "exec %s failed\n", ecmd->argv[0]);
+    printf(STDERR, "exec %s failed\n", ecmd->argv[0]);
     break;
 
   case REDIR:

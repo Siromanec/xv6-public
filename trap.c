@@ -7,7 +7,7 @@
 #include "x86.h"
 #include "traps.h"
 #include "spinlock.h"
-
+#include "debug.h"
 // Interrupt descriptor table (shared by all CPUs).
 struct gatedesc idt[256];
 extern uint vectors[];  // in vectors.S: array of 256 entry pointers
@@ -95,17 +95,32 @@ trap(struct trapframe *tf)
   //PAGEBREAK: 13
   //TODO figure out accessing to which address caused a pagefault DONE
     case T_PGFLT:
+      ;
+      uint addr = rcr2();
+#ifdef DEBUG_T_PGFLT
       cprintf("pid %d %s: trap %d err %d on cpu %d "
-              "eip 0x%x -- trying to handle\n",
+              "eip 0x%x addr 0x%x -- trying to handle\n",
               myproc()->pid, myproc()->name, tf->trapno,
-              tf->err, cpuid(), tf->eip);
-      if (swaprestore() == 0) {
-//        pgflt_success = TRUE;
+              tf->err, cpuid(), tf->eip, addr);
+#endif
+//      int success = FALSE;
 
-//        lapiceoi();
-//        switchuvm(myproc());
+      if (swaprestore(addr) == 0) { // swaprestore should be first because it is less broad than lazyalloc
+#ifdef DEBUG_T_PGFLT
+        cprintf("restored swapped\n");
+#endif
         return;
       }
+      if (lazyalloc(addr) == 0) {
+#ifdef DEBUG_T_PGFLT
+        cprintf("lazily allocated mem\n");
+#endif
+        return;
+      }
+
+//      if (success)
+//        return;
+
       goto ERROR_GOTO;
     case T_DBLFLT:
       cprintf("unexpected trap %d from cpu %d eip 0x%x (cr2=0x%x)\n",
