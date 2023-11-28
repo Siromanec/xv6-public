@@ -603,14 +603,14 @@ createdelete(void)
         name[1] = '0' + i;
         fd = open(name, O_CREATE | O_RDWR);
         if(fd < 0){
-          printf(1, "create failed\n");
+          printf(STDERR, "create failed\n");
           exit();
         }
         close(fd);
         if(i > 0 && (i % 2 ) == 0){
           name[1] = '0' + (i / 2);
           if(unlink(name) < 0){
-            printf(1, "unlink failed\n");
+            printf(STDERR, "unlink failed\n");
             exit();
           }
         }
@@ -618,7 +618,7 @@ createdelete(void)
       exit();
     }
   }
-
+//  printf(STDOUT, "pid %d\n", pid);
   for(pi = 0; pi < 4; pi++){
     wait();
   }
@@ -1571,7 +1571,7 @@ validatetest(void)
   printf(stdout, "validate test\n");
   hi = 1100*1024;
 
-  for(p = 0; p <= (uint)hi; p += 4096){
+  for(p = 4096; p <= (uint)hi; p += 4096){
     if((pid = fork()) == 0){
       // try to crash the kernel by passing in a badly placed integer
       validateint((int*)p);

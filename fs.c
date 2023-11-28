@@ -738,6 +738,9 @@ void swapwrite(const char *buf, struct proc *p, void *va) {
 void swapcopy(struct proc * parent, struct proc * child){
 
 }
+void swapclear(void *pa){
+
+}
 // reads into self-allocated page and returns whatever kalloc returns
 // va is rounded down to beginning of the page
 void *swapread(struct proc *p, void *va) {

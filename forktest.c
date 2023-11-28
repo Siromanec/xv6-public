@@ -29,7 +29,7 @@ forktest(void)
   }
 
   if(n == N){
-    printf(1, "fork claimed to work N times!\n", N);
+    printf(1, "fork claimed to work %d times!\n", N);
     exit();
   }
 

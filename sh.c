@@ -87,7 +87,7 @@ runcmd(struct cmd *cmd)
     rcmd = (struct redircmd*)cmd;
     close(rcmd->fd);
     if(open(rcmd->file, rcmd->mode) < 0){
-      printf(2, "open %s failed\n", rcmd->file);
+      printf(STDERR, "open %s failed\n", rcmd->file);
       exit();
     }
     runcmd(rcmd->cmd);
@@ -173,8 +173,11 @@ main(void)
         printf(2, "cannot cd %s\n", buf+3);
       continue;
     }
-    if(fork1() == 0)
+//    printf(2, "sh::main pid:%d is forking\n", );
+    if (fork1() == 0) {
       runcmd(parsecmd(buf));
+//      exit();
+    }
     wait();
   }
   exit();
@@ -193,8 +196,11 @@ fork1(void)
   int pid;
 
   pid = fork();
+#ifdef DEBUG_FORK
+  printf(STDOUT, "fork1: pid: %d\n", pid);
+#endif
   if(pid == -1)
-    panic("fork");
+    panic("fork1 failed");
   return pid;
 }
 

@@ -10,6 +10,7 @@
 int
 sys_fork(void)
 {
+//  cprintf("fork\n");
   return fork();
 }
 
@@ -23,6 +24,8 @@ sys_exit(void)
 int
 sys_wait(void)
 {
+
+//  cprintf("wait\n");
   return wait();
 }
 
@@ -52,7 +55,7 @@ sys_sbrk(void)
     return -1;
   addr = myproc()->sz;
   if (n >= 0)
-    myproc()->sz = myproc()->sz + n;
+    myproc()->sz += n;
   else
     if(growproc(n) < 0)
       return -1;

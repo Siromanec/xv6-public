@@ -97,7 +97,7 @@ struct segdesc {
 #define PTE_PS          0x080   // Page Size
 #define PTE_A           0x020   // Accessed
 #define PTE_S           0x400   // Swapped
-
+#define PTE_C           0x200   // copy-on-write
 
 // Address in page table or page directory entry
 #define PTE_ADDR(pte)   ((uint)(pte) & ~0xFFF) // nullify the page flags

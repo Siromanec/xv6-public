@@ -11,6 +11,7 @@
 #include "fs.h"
 #include "file.h"
 #include "stateinfo.h"
+#include "debug.h"
 struct {
   struct spinlock lock;
   struct proc proc[NPROC];
@@ -190,13 +191,20 @@ fork(void)
 
   // Allocate process.
   if((np = allocproc()) == 0){
+#ifdef DEBUG_FORK
+    cprintf("error at allocproc\n");
+#endif
+
     return -1;
   }
 
   // Copy process state from proc.
   if((np->pgdir = copyuvm(curproc->pgdir, curproc->sz)) == NULL){
+#ifdef DEBUG_FORK
+    cprintf("error at copyuvm\n");
+#endif
     kfree(np->kstack);
-    np->kstack = 0;
+    np->kstack = NULL;
     np->state = UNUSED;
     return -1;
   }
@@ -234,7 +242,9 @@ exit(void)
   struct proc *curproc = myproc();
   struct proc *p;
   int fd;
-
+#ifdef DEBUG_EXIT
+  cprintf("exit: my parent pid: %d\n", curproc->parent->pid);
+#endif
   if(curproc == initproc)
     panic("init exiting");
 
@@ -443,11 +453,16 @@ sleep(void *chan, struct spinlock *lk)
   // Go to sleep.
   p->chan = chan;
   p->state = SLEEPING;
-
+#ifdef DEBUG_SLEEP
+  cprintf("sleep: pid: %d:going to sleep on %s\n",p->pid, lk->name);
+#endif
   sched();
 
+#ifdef DEBUG_SLEEP
+  cprintf("sleep: pid: %d:waking up on %s\n",p->pid, lk->name);
+#endif
   // Tidy up.
-  p->chan = 0;
+  p->chan = NULL;
 
   // Reacquire original lock.
   if(lk != &ptable.lock){  //DOC: sleeplock2
@@ -536,7 +551,10 @@ procdump(void)
               }
           }
       }
-    cprintf("pid:%d\tstate:%s\tname:%s\tmemory:%d\tnfiles:%d\t", p->pid, state, p->name, p->sz, file_count);
+    if( p->parent != NULL)
+      cprintf("pid:%d\tppid:%d\tstate:%s\tname:%s\tmemory:%d\tnfiles:%d\t", p->pid, p->parent->pid,state, p->name, p->sz, file_count);
+    else
+      cprintf("pid:%d\tstate:%s\tname:%s\tmemory:%d\tnfiles:%d\t", p->pid, state, p->name, p->sz, file_count);
     cprintf("inodes:(");
     for (int j = 0; j < NOFILE; ++j) {
         if (p->ofile[j] != 0) {

@@ -5,7 +5,7 @@
 #include "user.h"
 #include "fcntl.h"
 
-char *argv[] = { "sh", 0 };
+char *argv[] = { "sh", NULL };
 
 int
 main(void)
@@ -20,18 +20,18 @@ main(void)
   dup(0);  // stderr
 
   for(;;){
-    printf(1, "init: starting sh\n");
+    printf(STDOUT, "init: starting sh\n");
     pid = fork();
     if(pid < 0){
-      printf(1, "init: fork failed\n");
+      printf(STDERR, "init: fork failed\n");
       exit();
     }
     if(pid == 0){
       exec("sh", argv);
-      printf(1, "init: exec sh failed\n");
+      printf(STDERR, "init: exec sh failed\n");
       exit();
     }
     while((wpid=wait()) >= 0 && wpid != pid)
-      printf(1, "pid: %d zombie!\n", wpid);
+      printf(STDERR, "pid: %d zombie!\n", wpid);
   }
 }

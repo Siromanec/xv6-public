@@ -104,19 +104,25 @@ trap(struct trapframe *tf)
               tf->err, cpuid(), tf->eip, addr);
 #endif
 //      int success = FALSE;
-
-      if (swaprestore(addr) == 0) { // swaprestore should be first because it is less broad than lazyalloc
+      if (handle_pagefault(addr, tf->err) == 0) {
 #ifdef DEBUG_T_PGFLT
-        cprintf("restored swapped\n");
+        cprintf("success\n");
 #endif
+//        flush_tlb();
         return;
       }
-      if (lazyalloc(addr) == 0) {
-#ifdef DEBUG_T_PGFLT
-        cprintf("lazily allocated mem\n");
-#endif
-        return;
-      }
+//      if (swaprestore(addr) == 0) { // swaprestore should be first because it is less broad than lazyalloc
+//#ifdef DEBUG_T_PGFLT
+//        cprintf("restored swapped\n");
+//#endif
+//        return;
+//      }
+//      if (lazyalloc(addr) == 0) {
+//#ifdef DEBUG_T_PGFLT
+//        cprintf("lazily allocated mem\n");
+//#endif
+//        return;
+//      }
 
 //      if (success)
 //        return;
@@ -131,7 +137,7 @@ trap(struct trapframe *tf)
 
 ERROR_GOTO:
   default:
-    if(myproc() == 0 || (tf->cs&3) == 0){
+    if(myproc() == NULL || (tf->cs&3) == 0){
       // In kernel, it must be our mistake.
       cprintf("unexpected trap %d from cpu %d eip 0x%x (cr2=0x%x)\n",
               tf->trapno, cpuid(), tf->eip, rcr2());
@@ -142,7 +148,7 @@ ERROR_GOTO:
             "eip 0x%x addr 0x%x--kill proc\n",
             myproc()->pid, myproc()->name, tf->trapno,
             tf->err, cpuid(), tf->eip, rcr2());
-    myproc()->killed = 1;
+    myproc()->killed = TRUE;
   }
 
   // Force process exit if it has been killed and is in user space.

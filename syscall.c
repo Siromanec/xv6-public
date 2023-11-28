@@ -82,7 +82,7 @@ argptr(int n, char **pp, int size)
   if(argint(n, &i) < 0)
     return -1;
   if (i < PGSIZE) {
-    cprintf("NULL dereferencing");
+    cprintf("NULL dereferencing\n");
     return -2;
   }
   LOG_SYSCALLS = LOG_SYSCALLS_OLD;

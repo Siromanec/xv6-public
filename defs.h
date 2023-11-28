@@ -58,9 +58,7 @@ void            stati(struct inode*, struct stat*);
 int             writei(struct inode*, char*, uint, uint);
 void            swapinit(void);
 void            swapwrite(const char *buf, struct proc *p, void *va);
-void * swapread(struct proc *p, void *va);
-int             is_swapped(pde_t *pte);
-int swaprestore(uint addr);
+void*           swapread(struct proc *p, void *va);
 
 
 
@@ -79,7 +77,9 @@ char*           kalloc(void);
 void            kfree(char*);
 void            kinit1(void*, void*);
 void            kinit2(void*, void*);
-
+int inc_ref_pa(uint pa);
+int dec_ref_pa(uint pa);
+int get_ref_pa(uint pa);
 // kbd.c
 void            kbdintr(void);
 
@@ -198,12 +198,22 @@ void            switchkvm(void);
 int             copyout(pde_t*, uint, void*, uint);
 void            clearpteu(pde_t *pgdir, char *uva);
 int             swap();
-int             lazyalloc(uint addr);
+//int             lazyalloc(uint addr);
+//int             copy_on_write(void    *va, pte_t *pte, struct proc *p);
+int             handle_pagefault(uint addr, uint err);
+
+void
+flush_tlb(void);
 
 // number of elements in fixed-size array
 #define NELEM(x) (sizeof(x)/sizeof((x)[0]))
 #define NULL 0
 //sysfile.c
 extern int LOG_SYSCALLS;
+
+
 #define FALSE 0
 #define TRUE  1
+
+inline int MAX(int a, int b) { return((a) > (b) ? a : b); }
+inline int MIN(int a, int b) { return((a) < (b) ? a : b); }

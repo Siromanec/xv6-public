@@ -27,7 +27,7 @@ exec(char *path, char **argv)
     return -1;
   }
   ilock(ip);
-  pgdir = 0;
+  pgdir = NULL;
 
   // Check ELF header
   if(readi(ip, (char*)&elf, 0, sizeof(elf)) != sizeof(elf))
@@ -72,12 +72,12 @@ exec(char *path, char **argv)
   for(argc = 0; argv[argc]; argc++) {
     if(argc >= MAXARG)
       goto bad;
-    sp = (sp - (strlen(argv[argc]) + 1)) & ~3;
+    sp = (sp - (strlen(argv[argc]) + 1)) & ~3; // stack alignment with & ~3
     if(copyout(pgdir, sp, argv[argc], strlen(argv[argc]) + 1) < 0)
       goto bad;
     ustack[3+argc] = sp;
   }
-  ustack[3+argc] = 0;
+  ustack[3+argc] = NULL;
 
   ustack[0] = 0xffffffff;  // fake return PC
   ustack[1] = argc;
