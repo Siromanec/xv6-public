@@ -689,7 +689,7 @@ void swapinit(void) {
 //    end_op();
     s->block = ss;
 //    cprintf("ss: %d\n", ss);
-
+    s->taken = FALSE;
     ss += (SWBLOCKS);
     initsleeplock(&s->lock, "swap");
     swapll.head.next->prev = s;
@@ -699,7 +699,7 @@ void swapinit(void) {
 
 
 // assumes input buffer is of size PGSIZE
-void swapwrite(const char *buf, struct proc *p, void *va) {
+void swapwrite(const char *buf, void *va) {
   struct swap_s *s;
 
   struct buf *bp;
@@ -711,7 +711,7 @@ void swapwrite(const char *buf, struct proc *p, void *va) {
   for (int j = 0; j < (sb.nswap / (SWBLOCKS)); j++) {
     s = &swapll.buf[j];
 //    cprintf("hello from loop");
-    if (s->proc == NULL || s->proc->state == UNUSED) {
+    if (!s->taken) {
 //      acquiresleep(&s->lock);
 
       begin_op();
@@ -725,8 +725,9 @@ void swapwrite(const char *buf, struct proc *p, void *va) {
       end_op();
 
       s->va = va;
-      s->proc = p;
+      s->pa = V2P(buf);
 //      releasesleep(&s->lock);
+      s->taken = TRUE;
 
       return;
     }
@@ -738,12 +739,12 @@ void swapwrite(const char *buf, struct proc *p, void *va) {
 void swapcopy(struct proc * parent, struct proc * child){
 
 }
-void swapclear(void *pa){
+void swapfree(void *pa){
 
 }
 // reads into self-allocated page and returns whatever kalloc returns
 // va is rounded down to beginning of the page
-void *swapread(struct proc *p, void *va) {
+void *swapread(void *va, uint pa) {
   //TODO making the swapped address valid again
   //I think its a matter of setting another physical address in the pagetable
   struct swap_s *s;
@@ -751,17 +752,16 @@ void *swapread(struct proc *p, void *va) {
   if ((uint) (va) % PGSIZE)
     panic("swapread va");
 #ifdef DEBUG_SWAPREAD
-  cprintf("swapread: 0x%x\n", va);
-  cprintf("swapread: proc name: %s proc pid: %d\n", p->name, p->pid);
+  cprintf("swapread: va: 0x%x pa: 0x%x\n", va, pa);
 #endif
   for (int j = 0; j < (sb.nswap / SWBLOCKS); j++) {
     s = &swapll.buf[j];
 //    cprintf("0x%x ", s->pte);
 #ifdef DEBUG_SWAPREAD
-    if (s->proc != NULL)
-      cprintf("swapread: pid: %d va: 0x%x\n", s->proc->pid, s->va);
+    if ( s->taken )
+      cprintf("swapread: pa: 0x%x va: 0x%x\n", s->pa, s->va);
 #endif
-    if (s->proc != NULL && s->proc->pid == p->pid && s->va == va) {
+    if ( s->taken && s->pa == pa && s->va == va) {
 //      bwrite();
 #ifdef DEBUG_SWAPREAD
       cprintf("swapread: FOUND!\n");
@@ -774,7 +774,7 @@ void *swapread(struct proc *p, void *va) {
         brelse(bp);
       }
       releasesleep(&s->lock);
-      s->proc = NULL;
+      s->taken = FALSE;
       return pg;
     }
   }

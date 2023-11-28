@@ -9,8 +9,9 @@
 struct swap_s {
   uint block; // first block of four that stores the page
   void *va; // virtual address it represents
-  int taken;
-  struct proc *proc;
+  uint pa;
+  BOOL taken;
+//  struct proc *proc;
   struct sleeplock lock;
   struct swap_s *prev;
   struct swap_s *next;

@@ -210,6 +210,7 @@ UPROGS=\
 	_benchmark\
 	_swaptest\
 	_stacktest\
+	_null\
 
 #
 #UCXXPROGS=\
@@ -290,6 +291,7 @@ EXTRA=\
 	README dot-bochsrc *.pl toc.* runoff runoff1 runoff.list\
     .gdbinit.tmpl gdbutil\
 	benchmark.c swaptest.c stacktest.c\
+	null.c\
 
 #	stdc++.cpp mycpp.cpp \
 

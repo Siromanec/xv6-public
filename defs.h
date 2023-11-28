@@ -1,3 +1,4 @@
+
 struct buf;
 struct context;
 struct file;
@@ -57,9 +58,9 @@ int             readi(struct inode*, char*, uint, uint);
 void            stati(struct inode*, struct stat*);
 int             writei(struct inode*, char*, uint, uint);
 void            swapinit(void);
-void            swapwrite(const char *buf, struct proc *p, void *va);
-void*           swapread(struct proc *p, void *va);
-
+void swapwrite(const char *buf, void *va);
+void *swapread(void *va, uint pa);
+//int             swaprestore(void *va, pte_t *pte, pde_t *pgdir);
 
 
 // ide.c
@@ -207,13 +208,11 @@ flush_tlb(void);
 
 // number of elements in fixed-size array
 #define NELEM(x) (sizeof(x)/sizeof((x)[0]))
-#define NULL 0
 //sysfile.c
 extern int LOG_SYSCALLS;
 
 
-#define FALSE 0
-#define TRUE  1
+
 
 inline int MAX(int a, int b) { return((a) > (b) ? a : b); }
 inline int MIN(int a, int b) { return((a) < (b) ? a : b); }

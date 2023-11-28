@@ -1,6 +1,8 @@
 // This file contains definitions for the
 // x86 memory management unit (MMU).
 
+#ifndef XV6_PUBLIC_MMU_H
+#define XV6_PUBLIC_MMU_H
 // Eflags register
 #define FL_IF           0x00000200      // Interrupt Enable
 
@@ -184,3 +186,4 @@ struct gatedesc {
 #endif
 
 #define SWAP_INTERVAL 1024 // from my modest tests, this is n ticks in 10 secondes
+#endif //XV6_PUBLIC_MMU_H
