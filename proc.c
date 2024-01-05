@@ -88,7 +88,7 @@ allocproc(void)
       goto found;
 
   release(&ptable.lock);
-  return 0;
+  return NULL;
 
 found:
   p->state = EMBRYO;
@@ -99,7 +99,7 @@ found:
   // Allocate kernel stack.
   if((p->kstack = kalloc()) == 0){
     p->state = UNUSED;
-    return 0;
+    return NULL;
   }
   sp = p->kstack + KSTACKSIZE;
 

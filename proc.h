@@ -50,6 +50,19 @@ struct proc {
   char name[16];               // Process name (debugging)
 };
 
+typedef enum page_info_type {
+  POINTS_TO_PTE,
+  VA,
+} page_info_type_t;
+typedef struct page_data {
+  int ref_count;
+  union {
+    uint va;
+    pte_t * pte;
+  };
+  uint swapfile_index; // TODO
+} page_data_t;
+
 // Process memory is laid out contiguously, low addresses first:
 //   text
 //   original data and bss

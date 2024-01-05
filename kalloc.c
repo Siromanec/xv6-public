@@ -9,18 +9,27 @@
 #include "mmu.h"
 #include "spinlock.h"
 #include "debug.h"
-
+#include "proc.h"
 void freerange(void *vstart, void *vend);
 
 extern char end[]; // first address after kernel loaded from ELF file
 // defined by the kernel linker script in kernel.ld
+
+#define NPDATAMAP (PHYSTOP / PGSIZE)
 struct {
   struct spinlock lock;
-  int data[PHYSTOP / PGSIZE];
-} phys_page_refcount;
+  int use_lock;
+  page_data_t data[NPDATAMAP];
+} phys_page_data;
+
+
+
+
 struct run {
   struct run *next;
 };
+
+
 
 struct {
   struct spinlock lock;
@@ -36,13 +45,16 @@ struct {
 void
 kinit1(void *vstart, void *vend) {
   initlock(&kmem.lock, "kmem");
+  initlock(&phys_page_data.lock, "phys_page_data");
   kmem.use_lock = 0;
+  phys_page_data.use_lock = 0;
   freerange(vstart, vend);
 }
 
 void
 kinit2(void *vstart, void *vend) {
   freerange(vstart, vend);
+  phys_page_data.use_lock = 1;
   kmem.use_lock = 1;
 }
 
@@ -77,32 +89,24 @@ kfree(char *v) {
 
   r = (struct run *) v;
 
-  if (phys_page_refcount.data[V2P(r) / PGSIZE] == 1) // last reference // TODO determine wether locking is requiredd here
-    memset(v, 1, PGSIZE); // it needs to be here because it makes rnext 0xfffffffff
-//  cprintf("0x%x\n", V2P(r) / PGSIZE);
+  if (get_ref_pa(V2P(r)) == 1) // last reference // TODO determine whether locking is requiredd here
+    memset(v, 1, PGSIZE); // it needs to be here because it makes rnext 0xfffffffff -- later note: it does not it sets to 0x1 not 0xff
+
+  if (get_ref_pa(V2P(r)) != 0)
+    dec_ref_pa(V2P(r));
+
 
   if (kmem.use_lock) {
     acquire(&kmem.lock);
-    acquire(&phys_page_refcount.lock);
-  }
-  if (phys_page_refcount.data[V2P(r) / PGSIZE] > 0) { // double kfree used to work fine
-//    if(kmem.use_lock){
-//      cprintf("fake kfree\n");
-//    }
-    phys_page_refcount.data[V2P(r) / PGSIZE]--;
   }
 
-  if (phys_page_refcount.data[V2P(r) / PGSIZE] == 0) {
-//    if(kmem.use_lock){
-//      cprintf("kfree\n");
-//    }
+  // is empty
+  if (get_ref_pa(V2P(r)) == 0) {
     r->next = kmem.freelist;
     kmem.freelist = r;
   }
 
-
   if (kmem.use_lock) {
-    release(&phys_page_refcount.lock);
     release(&kmem.lock);
   }
 
@@ -118,59 +122,129 @@ kalloc(void) {
 
   if (kmem.use_lock) {
     acquire(&kmem.lock);
-    acquire(&phys_page_refcount.lock);
   }
   r = kmem.freelist;
   if (r != NULL) {
     kmem.freelist = r->next;
-    phys_page_refcount.data[V2P(r) / PGSIZE] = 1;
+    // here i am hoping that refcount was set to zero - it had to be by kfree
+    if (inc_ref_pa(V2P(r)) != 1)
+      panic("kalloc: inc_ref_pa");
+  } else {
+    // TODO try to get a page that was swapped out
+    // swapvictim();
+    // r = kmem.freelist;
   }
   if (kmem.use_lock) {
-    release(&phys_page_refcount.lock);
     release(&kmem.lock);
   }
   return (char *) r;
+}
+
+static inline int __inc_ref_pa(uint pa) {
+  return ++phys_page_data.data[pa / PGSIZE].ref_count;
+}
+static inline int __get_ref_pa(uint pa) {
+  return phys_page_data.data[pa / PGSIZE].ref_count;
+};
+static inline int __dec_ref_pa(uint pa) {
+  return --phys_page_data.data[pa / PGSIZE].ref_count;
 }
 
 int inc_ref_pa(uint pa) {
 //  cprintf("0x%x\n",pa/PGSIZE);
 
   if (pa > PHYSTOP)
-    panic("inc above PHYSTOP");
+    panic("inc_ref_pa: above PHYSTOP");
 #ifdef DEBUG_PGREFCNT
-  cprintf("inc: 0x%x from:%d to:%d\n", pa,phys_page_refcount.data[pa/PGSIZE],phys_page_refcount.data[pa/PGSIZE] + 1 );
+  cprintf("inc: 0x%x from:%d to:%d\n", pa,phys_page_data.data[pa/PGSIZE],phys_page_data.data[pa/PGSIZE] + 1 );
 #endif
 
-  acquire(&phys_page_refcount.lock);
-  int c = ++phys_page_refcount.data[pa/PGSIZE];
-  release(&phys_page_refcount.lock);
-  return c;
+  if (phys_page_data.use_lock) {
+    acquire(&phys_page_data.lock);
+  }
+  int cnt = __inc_ref_pa(pa);
+
+  if (phys_page_data.use_lock) {
+    release(&phys_page_data.lock);
+  }
+  return cnt;
 
 }
-int get_ref_pa(uint pa){
+
+
+int get_ref_pa(uint pa) {
 
   if (pa > PHYSTOP)
-    panic("get above PHYSTOP");
-  acquire(&phys_page_refcount.lock);
-  int c = phys_page_refcount.data[pa/PGSIZE];
-  release(&phys_page_refcount.lock);
+    panic("get_ref_pa: above PHYSTOP");
+  if (phys_page_data.use_lock) {
+    acquire(&phys_page_data.lock);
+  }
+  int cnt = __get_ref_pa(pa);
 
-  return c;
+  if (phys_page_data.use_lock) {
+    release(&phys_page_data.lock);
+  }
+
+  return cnt;
 }
+
+
 
 int dec_ref_pa(uint pa) {
   if (pa > PHYSTOP)
-    panic("dec above PHYSTOP");
+    panic("dec_ref_pa: above PHYSTOP");
 #ifdef DEBUG_PGREFCNT
-  cprintf("dec: 0x%x from:%d to:%d\n", pa,phys_page_refcount.data[pa/PGSIZE],phys_page_refcount.data[pa/PGSIZE] - 1  );
+  cprintf("dec: 0x%x from:%d to:%d\n", pa,phys_page_data.data[pa/PGSIZE],phys_page_data.data[pa/PGSIZE] - 1  );
 #endif
-  acquire(&phys_page_refcount.lock);
-  if (phys_page_refcount.data[pa / PGSIZE] > 0) {
-    int c = --phys_page_refcount.data[pa / PGSIZE];
-    release(&phys_page_refcount.lock);
-    return c;
+  if (phys_page_data.use_lock) {
+    acquire(&phys_page_data.lock);
   }
-  release(&phys_page_refcount.lock);
- panic("dec_ref_pa: decrementing no ref");
+
+  int cnt = __dec_ref_pa(pa);
+
+  if (phys_page_data.use_lock) {
+    release(&phys_page_data.lock);
+  }
+  if (cnt < 0)
+    panic("dec_ref_pa: decrementing no ref");
 // return 0 ;
+  return cnt;
 }
+
+page_info_type_t __pa_get_type(uint pa) {
+  if (__get_ref_pa(pa) == 1)
+    return POINTS_TO_PTE;
+  if(__get_ref_pa(pa) == 0)
+    return -1;
+  return VA;
+}
+
+pte_t ** __pa_get_pte_iterator(uint pa) {
+  //TODO NOT READY
+  if (__get_ref_pa(pa) == 0)
+    return NULL;
+  if (__get_ref_pa(pa) == 1)
+  {
+    return &phys_page_data.data[pa / PGSIZE].pte;
+  }
+  return NULL;
+  // x_iterator_init (&x_iterator);
+  // while(x_has_next(&x_iterator)):
+  //   x_get_next(&x_iterator)
+  //
+  // for proc in ptable
+  //   pgdir = proc.pgdir
+  //   pte = walkpgdir(p->pgdir, phys_page_data.data[pa / PGSIZE].va, FALSE)
+  //   if pte
+  //   perform_action_for_single_pte(pte)
+  //    PTE_FLAGS(*phys_page_data.data[pa / PGSIZE].pte);
+}
+
+
+
+//    pa_pte_iterator_get_next
+// each concrete iterator must have a magic number (for type safety) (at the end?)
+// or type + magic number
+
+
+

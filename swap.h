@@ -17,8 +17,9 @@ struct swap_s {
   struct swap_s *next;
 };
 
-
-
+#define SWAP_RANDOM
+#define SWAP_LRU
+#define SWAP_FIFO
 
 
 

@@ -68,7 +68,7 @@ balloc(uint dev) {
   int b, bi, m;
   struct buf *bp;
 
-  bp = 0;
+  bp = NULL;
   for (b = 0; b < sb.size; b += BPB) {
     bp = bread(dev, BBLOCK(b, sb));
     for (bi = 0; bi < BPB && b + bi < sb.size; bi++) {
@@ -292,7 +292,7 @@ ilock(struct inode *ip) {
   struct buf *bp;
   struct dinode *dip;
 
-  if (ip == 0 || ip->ref < 1)
+  if (ip == NULL || ip->ref < 1)
     panic("ilock");
 
   acquiresleep(&ip->lock);
@@ -374,7 +374,7 @@ bmap(struct inode *ip, uint bn) {
   struct buf *bp;
 
   if (bn < NDIRECT) {
-    if ((addr = ip->addrs[bn]) == 0)
+    if ((addr = ip->addrs[bn]) == NULL)
       ip->addrs[bn] = addr = balloc(ip->dev);
     return addr;
   }
@@ -382,17 +382,20 @@ bmap(struct inode *ip, uint bn) {
 
   if (bn < NINDIRECT) {
     // Load indirect block, allocating if necessary.
-    if ((addr = ip->addrs[NDIRECT]) == 0)
-      ip->addrs[NDIRECT] = addr = balloc(ip->dev);
+    if ((addr = ip->addrs[IND_BLOCK]) == NULL)
+      ip->addrs[IND_BLOCK] = addr = balloc(ip->dev);
     bp = bread(ip->dev, addr);
     a = (uint *) bp->data;
-    if ((addr = a[bn]) == 0) {
+    if ((addr = a[bn]) == NULL) {
       a[bn] = addr = balloc(ip->dev);
       log_write(bp);
     }
     brelse(bp);
     return addr;
   }
+
+  bn -= NINDIRECT;
+
 
   panic("bmap: out of range");
 }
@@ -656,8 +659,9 @@ nameiparent(char *path, char *name) {
   return namex(path, 1, name);
 }
 
+struct file *swapfile;
 
-void swapinit(void) {
+void swapinit/*_superblock*/(void) {
 //  begin_op();
 ////  struct inode * ip = ialloc(T_FILE);
 //  struct inode * ip;
@@ -668,7 +672,26 @@ void swapinit(void) {
 ////  cprintf("dev:%s\n", ip->dev);
 //  end_op();
   struct swap_s *s;
-//  readsb(ROOTDEV, &sb);
+
+  /*creating swapdfile*/
+  struct inode * swapinode;
+  begin_op();
+
+  if((swapinode = ialloc(ROOTDEV, T_FILE)) == NULL)
+    panic("swapinit: ialloc");
+  ilock(swapinode);
+  swapinode->major = 0;
+  swapinode->minor = 0;
+  swapinode->nlink = 1;
+  iupdate(swapinode);
+  if((swapfile = filealloc()) == NULL){
+    iunlockput(swapinode);
+    end_op();
+    panic("swapinit: could not allocate file");
+  }
+  iunlock(swapinode);
+  end_op();
+
   initlock(&swapll.lock, "swapll");
 
 //PAGEBREAK!
@@ -742,6 +765,7 @@ void swapcopy(struct proc * parent, struct proc * child){
 void swapfree(void *pa){
 
 }
+
 // reads into self-allocated page and returns whatever kalloc returns
 // va is rounded down to beginning of the page
 void *swapread(void *va, uint pa) {
@@ -761,7 +785,7 @@ void *swapread(void *va, uint pa) {
     if ( s->taken )
       cprintf("swapread: pa: 0x%x va: 0x%x\n", s->pa, s->va);
 #endif
-    if ( s->taken && s->pa == pa && s->va == va) {
+    if ( s->taken && s->pa == pa /*&& s->va == va*/) {
 //      bwrite();
 #ifdef DEBUG_SWAPREAD
       cprintf("swapread: FOUND!\n");

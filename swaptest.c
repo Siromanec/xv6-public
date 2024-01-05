@@ -4,11 +4,13 @@
 #include "types.h"
 #include "user.h"
 
+#define new(type, size) malloc(size * sizeof (type))
 
-int main(void) {
-  uint size = 4096 * 4;
-  int * my_mem = malloc(size);
+int main(int argc, char ** argv) {
+  uint size = 4096;
+//  int * my_mem = malloc(size * sizeof (int));
 
+  int * my_mem = new(int, size);
   for (int i = 0; i < size; ++i) {
     if (!(i%8))
       sleep(1);

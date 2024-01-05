@@ -11,15 +11,23 @@
 #include "fs.h"
 #include "file.h"
 #include "debug.h"
+#include "swap.h"
+#include "iterator.h"
 
 extern struct {
   struct spinlock lock;
   struct proc proc[NPROC];
 } ptable;
+extern struct {
+  struct spinlock lock;
+  int use_lock;
+  page_data_t data[PHYSTOP / PGSIZE];
+} phys_page_data;
 extern char data[];  // defined by kernel.ld
 pde_t *kpgdir;  // for use in scheduler()
 
 int copy_on_write(void *va, pte_t *pte, pde_t *pgdir);
+
 int swaprestore(void *va, pte_t *pte, pde_t *pgdir);
 // Set up CPU's kernel segment descriptors.
 // Run once on entry on each CPU.
@@ -330,7 +338,7 @@ copyuvm(pde_t *pgdir, uint sz) {
     if ((pte = walkpgdir(pgdir, (void *) i, 0)) == NULL)
       panic("copyuvm: pte should exist");
     if (*pte & PTE_S) {
-      swaprestore((void *)i, pte, pgdir);
+      swaprestore((void *) i, pte, pgdir);
     }//TODO handle this case; possible solution copy all swap entries
     if (!(*pte & PTE_P))
       continue; // TODO remove continue when swap works
@@ -499,6 +507,11 @@ int swap() {
   return 0;
 }
 
+/*
+ * @va - virtual address that is being swapped
+ * @pte - pointer to
+ * @pgdir - page directory
+ * */
 int swaprestore(void *va, pte_t *pte, pde_t *pgdir) {
 
 
@@ -594,8 +607,9 @@ int handle_pagefault(uint addr, uint err) {
   }
   if ((uint) va >= KERNBASE) // kernel mustn't generate pagefault
     return -1;
+
   if ((uint) va > p->sz) { // actual size is shifted
-    cprintf("address bigger than size\n");
+    cprintf("address 0x%x bigger than size 0x%x\n", va, p->sz);
     return -1;
   }
 
@@ -636,4 +650,86 @@ int handle_pagefault(uint addr, uint err) {
 inline void
 flush_tlb(void) {
   lcr3(V2P(myproc()->pgdir));
+}
+
+//int random_swap();
+//int lru_swap();
+//int fifo_swap();
+//
+//int swapvictim() {
+//#ifdef SWAP_FIFO
+//  return fifo_swap();
+//#endif
+//  return 0;
+//}
+
+typedef struct pa_pte_iterator {
+  iterator_t iterator;
+  page_data_t pd; // never use ptr; is modified by iterator
+  uint pa;
+} pa_pte_iterator_t;
+
+void pa_pte_iterator_init(pa_pte_iterator_t *iterator, const page_data_t * const pd, uint pa) {
+
+  if (iterator == NULL || pd == NULL)
+    return;
+
+  iterator->pa = pa;
+  if ((uint) pd->ref_count == 1) {
+    iterator->iterator.item_size = 0;
+    iterator->iterator.next_item = NULL;
+    iterator->iterator.end = (void *) NULL + sizeof(struct proc);
+//    iterator->pd = NULL;
+  } else {
+    iterator->iterator.item_size = sizeof(struct proc);
+    iterator->iterator.end = ptable.proc + sizeof(ptable.proc) + sizeof(struct proc);
+    iterator->iterator.next_item = ptable.proc; /* TODO pointer to first used process in ptable*/
+    iterator->pd = *pd;
+  }
+};
+
+
+BOOL pa_pte_iterator_has_next(pa_pte_iterator_t *iterator) {
+  return iterator->pd.ref_count != 0 && iterator_has_next((iterator_t *)iterator, NULL);
+};
+
+void * pa_pte_iterator_get_next(pa_pte_iterator_t *iterator) {
+  struct proc *p;
+  pte_t *pte;
+
+  if (iterator->iterator.next_item == NULL) {
+    iterator->iterator.next_item = iterator->iterator.end;
+    iterator->pd.ref_count--;
+
+    return iterator->pd.pte;
+  }
+//  acquire(&ptable.lock);
+  p = (struct proc *) iterator->iterator.next_item;
+  for (; p != iterator->iterator.end; p += sizeof(struct proc)) {
+    if (p->state == UNUSED)
+      continue;
+    pte = walkpgdir(p->pgdir, (void *) iterator->pd.va, FALSE);
+
+    if (PTE_ADDR(pte) == iterator->pa) {
+      iterator->iterator.next_item = p + sizeof(struct proc);
+      iterator->pd.ref_count--;
+      return pte;
+    }
+  }
+//  release(&ptable.lock);
+
+
+  return NULL;
+};
+
+
+void interract_with_pte(int (*callback)(pte_t *)){
+  pa_pte_iterator_t iterator;
+  page_data_t pd = {NULL, {NULL}};
+  pa_pte_iterator_init(&iterator, &pd, NULL);
+
+  while (pa_pte_iterator_has_next(&iterator)) {
+    pte_t * pte = pa_pte_iterator_get_next(&iterator);
+    callback(pte);
+  }
 }
