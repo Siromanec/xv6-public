@@ -2,7 +2,8 @@ typedef unsigned int   uint;
 typedef unsigned short ushort;
 typedef unsigned char  uchar;
 typedef uint pde_t;
-typedef int BOOL;
+typedef char BOOL;
+typedef int off_t;
 #ifndef __SIZE_TYPE__
 typedef uint size_t;
 #endif

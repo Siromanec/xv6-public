@@ -31,6 +31,10 @@ void            panic(char*) __attribute__((noreturn));
 int             exec(char*, char**);
 
 // file.c
+
+#define SEEK_SET 0
+#define SEEK_CUR 1
+#define SEEK_END 2
 struct file*    filealloc(void);
 void            fileclose(struct file*);
 struct file*    filedup(struct file*);
@@ -38,6 +42,8 @@ void            fileinit(void);
 int             fileread(struct file*, char*, int n);
 int             filestat(struct file*, struct stat*);
 int             filewrite(struct file*, char*, int n);
+int             fileseek(struct file *f, off_t offset, int whence);
+int             filetruncate(struct file *f, off_t length);
 
 // fs.c
 void            readsb(int dev, struct superblock *sb);
