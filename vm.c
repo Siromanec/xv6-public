@@ -299,6 +299,8 @@ void
 freevm(pde_t *pgdir) {
   uint i;
 
+
+  // TODO invalidate swapmap here and swapfile, perhaps in a form of one big transaction
   if (pgdir == NULL)
     panic("freevm: no pgdir");
   deallocuvm(pgdir, KERNBASE, 0);

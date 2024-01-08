@@ -28,6 +28,8 @@ OBJS = \
 	vectors.o\
 	vm.o\
 	iterator.o\
+	unordered_map.o\
+	LinkedList.o\
 
 # Cross-compiling (e.g., on Mac OS X)
 # TOOLPREFIX = i386-jos-elf

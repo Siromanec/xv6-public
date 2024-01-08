@@ -64,8 +64,8 @@ int             readi(struct inode*, char*, uint, uint);
 void            stati(struct inode*, struct stat*);
 int             writei(struct inode*, char*, uint, uint);
 void            swapinit(void);
-void swapwrite(const char *buf, void *va);
-void *swapread(void *va, uint pa);
+void            swapwrite(const char *buf, void *va);
+void *          swapread(void *va, uint pa);
 //int             swaprestore(void *va, pte_t *pte, pde_t *pgdir);
 
 
@@ -84,9 +84,11 @@ char*           kalloc(void);
 void            kfree(char*);
 void            kinit1(void*, void*);
 void            kinit2(void*, void*);
-int inc_ref_pa(uint pa);
-int dec_ref_pa(uint pa);
-int get_ref_pa(uint pa);
+int             inc_ref_pa(uint pa);
+int             dec_ref_pa(uint pa);
+int             get_ref_pa(uint pa);
+void            kmallocfree(void *ap);
+void *          kmalloc(uint nbytes);
 // kbd.c
 void            kbdintr(void);
 
@@ -217,7 +219,7 @@ flush_tlb(void);
 //sysfile.c
 extern int LOG_SYSCALLS;
 
-
+//void swapmap_add_remove_test();
 
 
 inline int MAX(int a, int b) { return((a) > (b) ? a : b); }

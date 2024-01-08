@@ -23,7 +23,7 @@
 #include "memlayout.h"
 #include "swap.h"
 #include "debug.h"
-
+#include "unordered_map.h"
 #define min(a, b) ((a) < (b) ? (a) : (b))
 
 static void itrunc(struct inode *);
@@ -681,14 +681,14 @@ void swapfile_bitmap_set(BOOL bit, uint i) {
    * 2. | the needed value
    * 3. write changes*/
   char value = 0;
-  if (fileseek(swapfile.f, 0, SEEK_SET) < 0 && fileread(swapfile.f, &value, sizeof (value) ) < 0)
+  if (fileseek(swapfile.f, 0, SEEK_SET) < 0 && fileread(swapfile.f, &value, sizeof(value)) < 0)
     panic("swapfile_bitmap_set: fileseek or fileread");
 
   /* 1. get bit match (either 0 or 0*10*)
    * 2. ~ -> (1* or 1*01*)
    * 3. & -> (bit was 0 and stays the same or bit was 1 and is nulified)
    * 4. | with values to set*/
-  value &=  ~((value & (1 << (i % 8))));
+  value &= ~((value & (1 << (i % 8))));
   if (bit)
     value |= (1 << (i % 8));
 
@@ -718,23 +718,27 @@ uint swapfile_get_free_page() {
 };
 
 
-
-int swapfile_write_page(void * src, uint i) {
+int swapfile_write_page(void *src, uint i) {
   if ((swapfile.f->ip->size < swapfile.bmap_size + (i + 1) * PGSIZE))
     panic("swapfile_write_page: out of range");
 
   fileseek(swapfile.f, swapfile.bmap_size + (i) * PGSIZE, SEEK_SET);
 
   filewrite(swapfile.f, src, PGSIZE);
-}; // always writes PGSIZE bytes
-int swapfile_read_page(void * dst, uint i) {
+  return 0;
 
-  if ((swapfile.f->ip->size < swapfile.bmap_size + (i + 1) * PGSIZE) && filetruncate(swapfile.f, swapfile.bmap_size + (i + 1) * PGSIZE) < 0)
+}; // always writes PGSIZE bytes
+int swapfile_read_page(void *dst, uint i) {
+
+  if ((swapfile.f->ip->size < swapfile.bmap_size + (i + 1) * PGSIZE) &&
+      filetruncate(swapfile.f, swapfile.bmap_size + (i + 1) * PGSIZE) < 0)
     panic("swapfile_read_page: filetruncate");
 
   fileseek(swapfile.f, swapfile.bmap_size + (i) * PGSIZE, SEEK_SET);
 
   fileread(swapfile.f, dst, PGSIZE);
+  return 0;
+
 
 }; // always reads PGSIZE bytes
 
@@ -742,7 +746,9 @@ int swapfile_free_page(uint i) {
   static char null_page[PGSIZE];
   swapfile_write_page(null_page, i);
   swapfile_bitmap_set(FALSE, i);
+  return 0;
 };
+
 int swapfile_use_example() {
   char *va = NULL;
   // TODO add locks and return value checkers
@@ -761,9 +767,10 @@ int swapfile_use_example() {
   swapfile_free_page(i);
   release(&swapfile.lock);
 
-
+  return 0;
 }
-void swapinit(void) {
+
+void swapinit_file(void) {
   /*creating swapdfile*/
   struct inode *swapinode;
   struct file *f;
@@ -804,8 +811,8 @@ void swapinit(void) {
     panic("swapinit: filetruncate");
 
 };
-
-void swapinit_superblock(void) {
+extern UnorderedMap swapMap;;
+void swapinit(void) {
   struct swap_s *s;
 
 
