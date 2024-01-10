@@ -782,8 +782,8 @@ int swapfile_read_page(void *dst, uint i) {
 
 int swapfile_free_page(uint i) {
   static char null_page[PGSIZE];
-  swapfile_write_page(null_page, i);
   swapfile_bitmap_set(FALSE, i);
+  swapfile_write_page(null_page, i);
   return 0;
 };
 
@@ -925,13 +925,14 @@ void swapwrite_file(const char *buf, void *la, pte_t *buf_pte) {
   LinkedListHead *PTEs = data->PTEs;
 
   page_data_t *pd = get_pd(V2P(buf));
+  cprintf("swapwrite_file: refcnt: %d\n", pd->ref_count);
 
   if (pd->ref_count == 1) {
     /*&pte because it is the pointer that is important, not the contents*/
     LinkedListAdd(PTEs, &buf_pte, NULL);
     *buf_pte |= PTE_S;
     *buf_pte &= ~PTE_P;
-    cprintf("write pte* : 0x%x\n", buf_pte);
+    cprintf("swapwrite_file: write pte* : 0x%x\n", buf_pte);
 
   } else {
     /*get iterator*/
@@ -943,7 +944,7 @@ void swapwrite_file(const char *buf, void *la, pte_t *buf_pte) {
       LinkedListAdd(PTEs, &pte, NULL);
       *pte |= PTE_S;
       *pte &= ~PTE_P;
-      cprintf("write pte* : 0x%x\n", pte);
+      cprintf("swapwrite_file: write pte* : 0x%x\n", pte);
 
     }
   }
@@ -1010,7 +1011,7 @@ swapread_file(void *la, pte_t *buf_pte) {
 
   SwapUniqueKey key = {.pa = old_pa, .log_a = (uint) la};
 
-  cprintf("pa: 0x%x\n", old_pa/PGSIZE);
+  cprintf("swapread_file: old pa: 0x%x\n", old_pa/PGSIZE);
 
   acquire(&swapMap.lock);
   /*get node to which ptes will be written*/
@@ -1021,33 +1022,42 @@ swapread_file(void *la, pte_t *buf_pte) {
 
   LinkedListNode *node = LinkedListGet(bin, &key);
   if (node == NULL) {
-      panic("swapmap: key not found\n");
+      panic("swapread_file: swapmap: key not found\n");
   }
 
   SwapData *data;
   void * new_va = kalloc();
   page_data_t * pd = get_pd(V2P(new_va));
+  cprintf("swapread_file: new pa: 0x%x\n", V2P(new_va)/PGSIZE);
+
+
 
   do {
     data = node->data;
 
     LinkedListNode * fitting_pte_entry = LinkedListGet(data->PTEs, &buf_pte);
     if(fitting_pte_entry == NULL){
-      node = LinkedListNodeGetNextMatching(bin->start, bin, &key);
+      node = LinkedListNodeGetNextMatching(node->next, bin, &key);
+      if(node == NULL)
+        break;
       continue;
     }
-    LinkedListNode * pte_entry;
+    LinkedListNode * pte_entry = data->PTEs->start;
     pd->ref_count = data->PTEs->length;
+
     do {
-      pte_entry = LinkedListNodeGetNextMatching(data->PTEs->start, data->PTEs, NULL);
-      if(pte_entry ==  NULL)
-        break;
+
       pte_t * pte = *(pte_t **)(pte_entry->uniqueKey);
-      cprintf("read pte* : 0x%x\n", pte);
-      int flags = PTE_FLAGS(*pte);
+      cprintf("swapread_file: pte* : 0x%x\n", pte);
       *pte &= (~PTE_S);
+      int flags = PTE_FLAGS(*pte);
 
       mappage(la, pte, V2P(new_va), flags);
+
+      pte_entry = pte_entry->next;
+      if(pte_entry ==  NULL)
+        break;
+
     }
     while (TRUE);
     break;
@@ -1057,7 +1067,11 @@ swapread_file(void *la, pte_t *buf_pte) {
   if (node == NULL) {
     panic("swapread_file: did not find pte");
   }
+
+  cprintf("swapread_file : 0x%x\n", data);
   uint pageNo = data->swapfilePageNo;
+  cprintf("swapread_file:  pageno: %d\n", pageNo);
+
   LinkedListNodeRemoveNextMatching(node, bin, NULL);
 
 
@@ -1069,7 +1083,66 @@ swapread_file(void *la, pte_t *buf_pte) {
 
 }
 
-void swapfree(void *pa) {
+void swapfree_file(char * va, void * la, pte_t * pte) {
+
+  //TODO free the swapped block
+
+  /* 1. find bin
+   * 2. find SwapNodeData, which contains pte
+   * 3. remove node containing pte
+   * 4. if it was the last node (aka PTEs->length == 0), swapfile_free, remove SwapNode*/
+//  uint old_pa = PTE_ADDR(*buf_pte);
+
+
+  SwapUniqueKey key = {.pa = V2P(va), .log_a = (uint) la};
+
+  cprintf("swapfree: old pa: 0x%x\n", V2P(va)/PGSIZE);
+
+  acquire(&swapMap.lock);
+  /*get node to which ptes will be written*/
+
+  LinkedListHead *bin = UnorderedMapGetBin(&swapMap, &key);
+
+//  LinkedListAdd(bin, &key, NULL);
+
+  LinkedListNode *node = LinkedListGet(bin, &key);
+  if (node == NULL) {
+    panic("swapfree: swapmap: key not found\n");
+  }
+
+  SwapData *data;
+
+  do {
+    data = node->data;
+
+    LinkedListNode * fitting_pte_entry = LinkedListGet(data->PTEs, &pte);
+    if(fitting_pte_entry == NULL){
+      node = LinkedListNodeGetNextMatching(node->next, bin, &key);
+      if(node == NULL)
+        break;
+      continue;
+    }
+
+    LinkedListNodeRemoveNextMatching(fitting_pte_entry, data->PTEs, NULL);
+    break;
+  }
+  while (node != NULL);
+
+  if (node == NULL) {
+    panic("swapfree: did not find pte");
+  }
+
+  cprintf("swapfree : 0x%x\n", data);
+  uint pageNo = data->swapfilePageNo;
+  cprintf("swapfree:  pageno: %d\n", pageNo);
+
+  if (data->PTEs->length == 0)
+    LinkedListNodeRemoveNextMatching(node, bin, NULL);
+
+
+  release(&swapMap.lock);
+
+  swapfile_free_page(pageNo);
 
 }
 

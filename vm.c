@@ -75,17 +75,18 @@ walkpgdir(pde_t *pgdir, const void *va, BOOL alloc) {
 }
 
 
-void mappage(char * la, pte_t * pte, uint pa, int perm) {
+void mappage(char *la, pte_t *pte, uint pa, int perm) {
   if ((*pte & PTE_P) && !(*pte & PTE_C) && !(*pte & PTE_S)) // if it is a copy on write or swap it is not a remap
     panic("remap");
   *pte = pa | perm | PTE_P;
 //    pa
-  if( (uint) la < KERNBASE) {
+  if ((uint) la < KERNBASE) {
     //
     get_pd(pa)->la = (uint) la;
 //    cprintf("mappage: la = 0x%x\n", la);
   }
 }
+
 // Create PTEs for virtual addresses starting at va that refer to
 // physical addresses starting at pa. va and size might not
 // be page-aligned.
@@ -297,10 +298,22 @@ deallocuvm(pde_t *pgdir, uint oldsz, uint newsz) {
         char *v = P2V(pa);
         kfree(v);
       }
-      //TODO free the swapped block
       *pte = 0;
+
+    } else if ((*pte & PTE_S) != 0) {
+      //TODO free the swapped block
+      pa = PTE_ADDR(*pte);
+      if (pa == NULL)
+        panic("deallocuvm");
+      char *v = P2V(pa);
+
+      swapfree_file(v, (void *) a, pte);
+      *pte = 0;
+
     }
+
   }
+
   return newsz;
 }
 

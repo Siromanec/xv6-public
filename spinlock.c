@@ -26,7 +26,7 @@ acquire(struct spinlock *lk)
 {
   pushcli(); // disable interrupts to avoid deadlock.
   if(holding(lk)){
-    cprintf("name: %s\n", lk->name);
+    cprintf("acquire: name: %s\n", lk->name);
     panic("acquire");
   }
 

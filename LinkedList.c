@@ -86,6 +86,7 @@ LinkedListNode *LinkedListNodeGetNextMatching(LinkedListNode *start, LinkedListH
 
 }
 
+
 // Returns next item after the deleted node
 // Returns NULL if either no nodes left or the end node was removed
 LinkedListNode *LinkedListNodeRemoveNextMatching(LinkedListNode *start, LinkedListHead *head, const void *uniqueKey) {
@@ -95,10 +96,14 @@ LinkedListNode *LinkedListNodeRemoveNextMatching(LinkedListNode *start, LinkedLi
       head->length--;
       if (cur->prev == NULL)
         head->start = cur->next;
+      else
+      {
+        cur->prev->next = cur->next;
+      }
       if (cur->next == NULL)
         head->end = cur->prev;
-      cur->prev->next = cur->next;
-      cur->next->prev = cur->prev;
+      else
+        cur->next->prev = cur->prev;
       LinkedListNode *next = cur->next;
       LinkedListNodeFree(cur, head);
       return next;

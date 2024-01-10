@@ -46,7 +46,7 @@ LinkedListHead *UnorderedMapGetBin(UnorderedMap *map, const void *key) {
 
 size_t SwapMapHash(const UnorderedMap *map, const SwapUniqueKey *key) {
 
-  cprintf("la: 0x%x, pa: 0x%x\n", key->log_a/ PGSIZE, key->pa/ PGSIZE);
+  cprintf("SwapMapHash: la: 0x%x, pa: 0x%x\n", key->log_a/ PGSIZE, key->pa/ PGSIZE);
   return (key->log_a / PGSIZE + key->pa/ PGSIZE) % map->size;
 }
 
