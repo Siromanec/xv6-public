@@ -1038,7 +1038,7 @@ swapread_file(void *la, pte_t *buf_pte) {
       pte_entry = LinkedListNodeGetNextMatching(data->PTEs->start, data->PTEs, NULL);
       if(pte_entry ==  NULL)
         break;
-      pte_t * pte = *(pte_t **)(pte_entry->data);
+      pte_t * pte = *(pte_t **)(pte_entry->uniqueKey);
       *pte &= (~PTE_S);
       int flags = PTE_FLAGS(*pte);
       mappage(la, pte, V2P(new_va), flags);
