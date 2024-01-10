@@ -683,20 +683,44 @@ void swapfile_bitmap_set(BOOL bit, uint i) {
    * 2. | the needed value
    * 3. write changes*/
   char value = 0;
-  if (fileseek(swapfile.f, i/8, SEEK_SET) < 0 && fileread(swapfile.f, &value, sizeof(value)) < 0)
-    panic("swapfile_bitmap_set: fileseek or fileread");
+//  cprintf("i = %d\n", i);
+
+
+  if (fileseek(swapfile.f, i / 8, SEEK_SET) < 0)
+    panic("swapfile_bitmap_set: fileseek");
+  if (fileread(swapfile.f, (char *) &value, sizeof(value)) < 0)
+    panic("swapfile_bitmap_set: fileread");
+
+//  cprintf("read flag value 0b%b\n", value);
 
   /* 1. get bit match (either 0 or 0*10*)
    * 2. ~ -> (1* or 1*01*)
-   * 3. & -> (bit was 0 and stays the same or bit was 1 and is nulified)
-   * 4. | with values to set*/
+   * 3. & -> (bit was 0 and stays the same or bit was 1 and is nullified)
+   * 4. | with value to set*/
   value &= ~((value & (1 << (i % 8))));
   if (bit)
     value |= (1 << (i % 8));
 
-  if (fileseek(swapfile.f, i/8, SEEK_SET) < 0 && filewrite(swapfile.f, &value, sizeof(value)) < 0)
-    panic("swapfile_bitmap_set: fileseek or filewrite");
 
+//  if (fileseek(swapfile.f, i/8, SEEK_SET) < 0 && filewrite(swapfile.f, (char *) &value, sizeof(value)) < 0)
+//    panic("swapfile_bitmap_set: fileseek or filewrite");
+
+  if (fileseek(swapfile.f, i / 8, SEEK_SET) < 0)
+    panic("swapfile_bitmap_set: fileseek (2)");
+  if (filewrite(swapfile.f, (char *) &value, sizeof(value)) < 0)
+    panic("swapfile_bitmap_set: filewrite");
+
+//  cprintf("written flag value 0b%b\n", value);
+
+  char test;
+  if (fileseek(swapfile.f, i / 8, SEEK_SET) < 0)
+    panic("swapfile_bitmap_set: fileseek");
+  if (fileread(swapfile.f, (char *) &test, sizeof(test)) < 0)
+    panic("swapfile_bitmap_set: fileread");
+
+//  cprintf("read flag value 0b%b\n", test);
+
+//  cprintf("flag value 0b%b for i = %d\n", test, i);
 };
 
 uint swapfile_get_free_page() {
@@ -705,12 +729,23 @@ uint swapfile_get_free_page() {
   fileseek(swapfile.f, 0, SEEK_SET);
 
   for (i = 0; i < swapfile.bmap_size * 8; ++i) {
-    if ((i) % (sizeof(swapfile.readbuf) * 8)
-        && fileread(swapfile.f,
-                    swapfile.readbuf,
-                    min(sizeof(swapfile.readbuf),
-                        swapfile.bmap_size - (i / 8))) < 0)
-      panic("swapfile_get_free_page: fileread");
+
+    if ((i) % (sizeof(swapfile.readbuf) * 8) == 0) {
+      if (fileread(swapfile.f,
+                   swapfile.readbuf,
+                   min(sizeof(swapfile.readbuf),
+                       swapfile.bmap_size - (i / 8))) < 0) {
+
+        panic("swapfile_get_free_page: fileread");
+      } /*else {
+        cprintf("selected size: %d\n", min(sizeof(swapfile.readbuf),
+                                           swapfile.bmap_size - (i / 8)));
+      }*/
+    }
+
+/*    cprintf("0b%b is used 0b%b for i = %d\n", (int) swapfile.readbuf[(i / 8) % sizeof(swapfile.readbuf)],
+            (int) swapfile_bitmap_is_used(swapfile.readbuf[(i / 8) % sizeof(swapfile.readbuf)], i), i);*/
+
     if (!swapfile_bitmap_is_used(swapfile.readbuf[(i / 8) % sizeof(swapfile.readbuf)], i)) {
       swapfile_bitmap_set(TRUE, i);
       return i;
@@ -772,6 +807,7 @@ int swapfile_use_example() {
 
   return 0;
 }
+
 //#ifdef SWAPFILE
 extern UnorderedMap swapMap;
 
@@ -822,6 +858,7 @@ void swapinit_file(void) {
 
 
 };
+
 //#elifdef SWAPSB
 void swapinit_sb(void) {
   struct swap_s *s;
@@ -861,10 +898,10 @@ void swapinit_sb(void) {
  * @param la -- logical address of the page
  * @param pte -- pointer for the page table entry
  * @modifies swapfile; pte flags; swapMap; phys_page_table; frees the memory*/
-void swapwrite_file(const char *buf, void * la, pte_t * buf_pte) {
+void swapwrite_file(const char *buf, void *la, pte_t *buf_pte) {
 
   /*write to file*/
-//  acquire(&swapfile.lock);
+//  acquire(&swapfile.lock); // cant lock while doing disk operations
   uint pageNo = swapfile_get_free_page();
   swapfile_write_page((char *) buf, pageNo);
 //  release(&swapfile.lock);
@@ -878,14 +915,16 @@ void swapwrite_file(const char *buf, void * la, pte_t * buf_pte) {
 
   LinkedListHead *bin = UnorderedMapGetBin(&swapMap, &key);
 
-  LinkedListNode * node = bin->end;
+  LinkedListAdd(bin, &key, NULL);
 
-  SwapData * data = node->data;
+  LinkedListNode *node = bin->end;
+
+  SwapData *data = node->data;
 
   data->swapfilePageNo = pageNo;
-  LinkedListHead * PTEs = data->PTEs;
+  LinkedListHead *PTEs = data->PTEs;
 
-  page_data_t * pd = get_pd(V2P(buf));
+  page_data_t *pd = get_pd(V2P(buf));
 
   if (pd->ref_count == 1) {
     /*&pte because it is the pointer that is important, not the contents*/
@@ -898,7 +937,7 @@ void swapwrite_file(const char *buf, void * la, pte_t * buf_pte) {
     pa_pte_iterator_init(&iterator, pd, V2P(buf));
     /*iterate over ptes the memory is refering to*/
     while (pa_pte_iterator_has_next(&iterator)) {
-      pte_t * pte = pa_pte_iterator_get_next(&iterator);
+      pte_t *pte = pa_pte_iterator_get_next(&iterator);
       LinkedListAdd(PTEs, &pte, NULL);
       *pte |= PTE_S;
       *pte &= ~PTE_P;
@@ -914,6 +953,7 @@ void swapwrite_file(const char *buf, void * la, pte_t * buf_pte) {
 //  flush_tlb();
 
 }
+
 // assumes input buffer is of size PGSIZE
 void swapwrite(const char *buf, void *va) {
   struct swap_s *s;

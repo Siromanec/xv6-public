@@ -492,7 +492,7 @@ int swap() {
           swapwrite_file(va, (void *) a, pte);
 //          swapwrite(va, (void *) a);
 
-          kfree(va); //TODO
+//          kfree(va); //TODO
           swapped_page_num++;
 //          } // clearing physical address to avoid anomalies
 
@@ -515,9 +515,9 @@ int swap() {
 }
 
 /*
- * @va - virtual address that is being swapped
- * @pte - pointer to
- * @pgdir - page directory
+ * @param va - virtual address that is being swapped
+ * @param pte - pointer to
+ * @param pgdir - page directory
  * */
 int swaprestore(void *va, pte_t *pte, pde_t *pgdir) {
 
