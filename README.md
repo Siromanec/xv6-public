@@ -1,91 +1,42 @@
-# xv6-syscall
+# xv6-mem
 - Виконував: Іванов Сергій https://github.com/Siromanec
-- Додаткові: логування сисвикликів і дані про ситему.
+# xv6-mem:
 
-### syscall.h
-Добавляю номер сисвиклику, щоб його можна було викликати з таблиці сисвикликів.
-### syscall.c
-Добавляю в таблицю сисвикликів сисвиклик, щоб можна було до функції доступатися за номером (це спрощує роботу з аргументами в асемблері (я про функцію, як аргумент)), оголошую функцію зовнішньою, щоб з іншого файлу можна було підтягнути
-### sysfile.c/sysproc.c
-Пишу тіло функції, дещо дивним способом дістаю аргументи (сама функція приймає войд, тому треба скористуватися argptr)
-### user.h
-Оголошую інтерфейс виклику, доступного в користувацькому просторі
-### usys.S
-Передаю номер сисвиклику у eax. З eax він береться у syscall.c. Викликаємо переривання, яке означає, що зробили сисвиклик. Потім трапгендлер якось це обробляє і викликає syscall() із syscall.c
-### printf.c
-Добавив підримку доповнення до 9 символів (у числах), uint
+## lazy-allocation
 
-## основне
+lazyalloc in vm.c
 
-```
-$ date
-17:58:41 03/10/2023
-```
+## copy-on-write
 
-# додаткові
+copy_on_write in vm.c
 
-## Логування
-`$ tlog` - від toggle logging
+## swap
 
-Реалізовано глобальною змінною. Її все використання у syscall.c
+in vm.c
 
-Приклад виводу
-```
- 0, 1, ch:32' ',cd ..
+swaps out not accessed pages;
 
-)
- sys call read (
- 0, 1, ch:99'c',
-)
- sys call read (
- 0, 1, ch:100'd',
-)
- sys call read (
- 0, 1, ch:32' ',
-)
- sys call read (
- 0, 1, ch:46'.',
-)
- sys call read (
- 0, 1, ch:46'.',
-)
- sys call chdir (
- 6787, '..',
-)
- sys call write (
- 2, 1, ch:36'$',$
-)
- sys call write (
- 2, 1, ch:32' ',
-)
- sys call read (
- 0, 1, ch:32' ',
+## swaprestore
 
-```
-## стан системи
-`$ state`
-Виводить дві таблиці: про процеси і процесор, на якому виконується процес (у стані running)
+in vm.c
 
-```
-$ benchmark&
-$ benchmark&
-$ benchmark&
-$ state
-pid: 1  state:sleep     name:    init   memory:    12288        nfiles:03       inodes:( 26, 26, 26,)
-pid: 2  state:sleep     name:    sh     memory:    16384        nfiles:03       inodes:( 26, 26, 26,)
-pid:27  state:run       name:    state  memory:    45056        nfiles:03       inodes:( 26, 26, 26,)
-pid:22  state:runble    name:    benchmark      memory:    12288        nfiles:03       inodes:( 26, 26, 26,)
-pid:24  state:runble    name:    benchmark      memory:    12288        nfiles:03       inodes:( 26, 26, 26,)
-pid:26  state:run       name:    benchmark      memory:    12288        nfiles:03       inodes:( 26, 26, 26,)
-cpu:0   pid:26
-cpu:1   pid:27
-$ 
+restores from swap
 
-```
-- benchmark - dummy-програма, що довго виконується
-- procdumpWrite - у файлі "proc.c"
+## swapwrite
+write to raw blocks
+## swapread
+read from raw blocks
+## swapwrite_file
 
+write buffer to a page in swapfile
 
+## swapread_file
+read from buffer to a page in swapfile
+
+## swapinit_file
+create file and init swapMap
+## swapinit_sb
+init sequential swap;
 
 
 # чуже
