@@ -931,6 +931,8 @@ void swapwrite_file(const char *buf, void *la, pte_t *buf_pte) {
     LinkedListAdd(PTEs, &buf_pte, NULL);
     *buf_pte |= PTE_S;
     *buf_pte &= ~PTE_P;
+    cprintf("write pte* : 0x%x\n", buf_pte);
+
   } else {
     /*get iterator*/
     pa_pte_iterator_t iterator;
@@ -941,6 +943,8 @@ void swapwrite_file(const char *buf, void *la, pte_t *buf_pte) {
       LinkedListAdd(PTEs, &pte, NULL);
       *pte |= PTE_S;
       *pte &= ~PTE_P;
+      cprintf("write pte* : 0x%x\n", pte);
+
     }
   }
 
@@ -1039,8 +1043,10 @@ swapread_file(void *la, pte_t *buf_pte) {
       if(pte_entry ==  NULL)
         break;
       pte_t * pte = *(pte_t **)(pte_entry->uniqueKey);
-      *pte &= (~PTE_S);
+      cprintf("read pte* : 0x%x\n", pte);
       int flags = PTE_FLAGS(*pte);
+      *pte &= (~PTE_S);
+
       mappage(la, pte, V2P(new_va), flags);
     }
     while (TRUE);
