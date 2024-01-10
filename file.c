@@ -191,6 +191,7 @@ fileseek(struct file *f, off_t offset, int whence) {
   }
   release(&ftable.lock);
 
+
   return status;
 }
 

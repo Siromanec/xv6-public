@@ -702,8 +702,6 @@ void swapfile_bitmap_set(BOOL bit, uint i) {
     value |= (1 << (i % 8));
 
 
-//  if (fileseek(swapfile.f, i/8, SEEK_SET) < 0 && filewrite(swapfile.f, (char *) &value, sizeof(value)) < 0)
-//    panic("swapfile_bitmap_set: fileseek or filewrite");
 
   if (fileseek(swapfile.f, i / 8, SEEK_SET) < 0)
     panic("swapfile_bitmap_set: fileseek (2)");
@@ -712,11 +710,11 @@ void swapfile_bitmap_set(BOOL bit, uint i) {
 
 //  cprintf("written flag value 0b%b\n", value);
 
-  char test;
+/*  char test;
   if (fileseek(swapfile.f, i / 8, SEEK_SET) < 0)
     panic("swapfile_bitmap_set: fileseek");
   if (fileread(swapfile.f, (char *) &test, sizeof(test)) < 0)
-    panic("swapfile_bitmap_set: fileread");
+    panic("swapfile_bitmap_set: fileread");*/
 
 //  cprintf("read flag value 0b%b\n", test);
 
@@ -903,6 +901,9 @@ void swapwrite_file(const char *buf, void *la, pte_t *buf_pte) {
   /*write to file*/
 //  acquire(&swapfile.lock); // cant lock while doing disk operations
   uint pageNo = swapfile_get_free_page();
+  cprintf("swapwrite_file:  pageno: %d\n", pageNo);
+
+
   swapfile_write_page((char *) buf, pageNo);
 //  release(&swapfile.lock);
 
@@ -1078,10 +1079,21 @@ swapread_file(void *la, pte_t *buf_pte) {
   release(&swapMap.lock);
 
 
+//  acquire(&swapfile.lock);
   swapfile_read_page(new_va, pageNo);
+  swapfile_free_page(pageNo);
+//  release(&swapfile.lock);
+
+  cprintf("swapread_file: ended reading\n");
+
 
 
 }
+
+extern struct {
+  struct spinlock lock;
+  struct proc proc[NPROC];
+} ptable;
 
 void swapfree_file(char * va, void * la, pte_t * pte) {
 
@@ -1136,20 +1148,30 @@ void swapfree_file(char * va, void * la, pte_t * pte) {
   uint pageNo = data->swapfilePageNo;
   cprintf("swapfree:  pageno: %d\n", pageNo);
 
-  if (data->PTEs->length == 0)
+  if (data->PTEs->length == 0) {
     LinkedListNodeRemoveNextMatching(node, bin, NULL);
+    release(&swapMap.lock);
+
+    release(&ptable.lock);
+//    acquire(&swapfile.lock);
+
+    swapfile_free_page(pageNo);
+//    release(&swapfile.lock);
+
+    acquire(&ptable.lock);
+  } else {
+    release(&swapMap.lock);
+  }
 
 
-  release(&swapMap.lock);
 
-  swapfile_free_page(pageNo);
+
 
 }
 
 // reads into self-allocated page and returns whatever kalloc returns
 // va is rounded down to beginning of the page
 void *swapread(void *va, uint pa) {
-  //TODO making the swapped address valid again
   //I think its a matter of setting another physical address in the pagetable
   struct swap_s *s;
   struct buf *bp;

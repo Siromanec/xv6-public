@@ -288,16 +288,14 @@ deallocuvm(pde_t *pgdir, uint oldsz, uint newsz) {
   a = PGROUNDUP(newsz);
   for (; a < oldsz; a += PGSIZE) {
     pte = walkpgdir(pgdir, (char *) a, FALSE);
-    if (!pte)
+    if (pte == NULL)
       a = PGADDR(PDX(a) + 1, 0, 0) - PGSIZE;
     else if ((*pte & PTE_P) != 0) {
-      if (!(*pte & PTE_S)) {
-        pa = PTE_ADDR(*pte);
-        if (pa == NULL)
-          panic("deallocuvm");
-        char *v = P2V(pa);
-        kfree(v);
-      }
+      pa = PTE_ADDR(*pte);
+      if (pa == NULL)
+        panic("deallocuvm");
+      char *v = P2V(pa);
+      kfree(v);
       *pte = 0;
 
     } else if ((*pte & PTE_S) != 0) {
@@ -306,6 +304,7 @@ deallocuvm(pde_t *pgdir, uint oldsz, uint newsz) {
       if (pa == NULL)
         panic("deallocuvm");
       char *v = P2V(pa);
+      cprintf("freeing swapped address = 0x%x\n", a);
 
       swapfree_file(v, (void *) a, pte);
       *pte = 0;
