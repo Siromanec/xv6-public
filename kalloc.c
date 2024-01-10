@@ -188,7 +188,32 @@ int get_ref_pa(uint pa) {
   return cnt;
 }
 
+page_data_t * get_pd(uint pa) {
 
+  if (pa > PHYSTOP)
+    panic("get_ref_pa: above PHYSTOP");
+//  if (phys_page_data.use_lock) {
+//    acquire(&phys_page_data.lock);
+//  }
+//  int cnt = __get_ref_pa(pa);
+//
+//  if (phys_page_data.use_lock) {
+//    release(&phys_page_data.lock);
+//  }
+
+  return &phys_page_data.data[pa / PGSIZE];
+}
+
+void reset_and_free_pa_pd(uint pa) {
+  phys_page_data.data[pa / PGSIZE].la = NULL;
+  phys_page_data.data[pa / PGSIZE].ref_count = 1;
+  kfree(P2V(pa));
+}
+
+
+//void set_pte(uint pa, pte_t * pte){
+//  phys_page_data.data[pa / PGSIZE].pte = pte;
+//}
 
 int dec_ref_pa(uint pa) {
   if (pa > PHYSTOP)
@@ -209,35 +234,6 @@ int dec_ref_pa(uint pa) {
     panic("dec_ref_pa: decrementing no ref");
 // return 0 ;
   return cnt;
-}
-
-page_info_type_t __pa_get_type(uint pa) {
-  if (__get_ref_pa(pa) == 1)
-    return POINTS_TO_PTE;
-  if(__get_ref_pa(pa) == 0)
-    return -1;
-  return VA;
-}
-
-pte_t ** __pa_get_pte_iterator(uint pa) {
-  //TODO NOT READY
-  if (__get_ref_pa(pa) == 0)
-    return NULL;
-  if (__get_ref_pa(pa) == 1)
-  {
-    return &phys_page_data.data[pa / PGSIZE].pte;
-  }
-  return NULL;
-  // x_iterator_init (&x_iterator);
-  // while(x_has_next(&x_iterator)):
-  //   x_get_next(&x_iterator)
-  //
-  // for proc in ptable
-  //   pgdir = proc.pgdir
-  //   pte = walkpgdir(p->pgdir, phys_page_data.data[pa / PGSIZE].va, FALSE)
-  //   if pte
-  //   perform_action_for_single_pte(pte)
-  //    PTE_FLAGS(*phys_page_data.data[pa / PGSIZE].pte);
 }
 
 

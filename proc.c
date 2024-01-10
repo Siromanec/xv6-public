@@ -12,6 +12,8 @@
 #include "file.h"
 #include "stateinfo.h"
 #include "debug.h"
+#include "swap.h"
+
 struct {
   struct spinlock lock;
   struct proc proc[NPROC];
@@ -410,7 +412,7 @@ yield(void)
 void
 forkret(void)
 {
-  static int first = 1;
+  static BOOL first = TRUE;
   // Still holding ptable.lock from scheduler.
   release(&ptable.lock);
 
@@ -418,10 +420,14 @@ forkret(void)
     // Some initialization functions must be run in the context
     // of a regular process (e.g., they call sleep), and thus cannot
     // be run from main().
-    first = 0;
+    first = FALSE;
     iinit(ROOTDEV);
     initlog(ROOTDEV);
-    swapinit();
+//    swapinit();
+#ifdef SWAPFILE
+    swapinit_file();
+#endif
+
   }
 
   // Return to "caller", actually trapret (see allocproc).

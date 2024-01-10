@@ -89,6 +89,8 @@ int             dec_ref_pa(uint pa);
 int             get_ref_pa(uint pa);
 void            kmallocfree(void *ap);
 void *          kmalloc(uint nbytes);
+struct page_data * get_pd(uint pa);
+void reset_and_free_pa_pd(uint pa);
 // kbd.c
 void            kbdintr(void);
 

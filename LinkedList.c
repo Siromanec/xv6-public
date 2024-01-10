@@ -41,7 +41,8 @@ void LinkedListNodeFree(LinkedListNode *node, LinkedListHead *head) {
 
 void LinkedListNodeInit(LinkedListNode *node, LinkedListHead *head, const void *uniqueKey, const void *data) {
   memmove(node->uniqueKey, uniqueKey, head->keySize);
-  memmove(node->data, data, head->dataSize);
+  if(data != NULL)
+    memmove(node->data, data, head->dataSize);
 }
 
 LinkedListNode *LinkedListNodeCreate(LinkedListHead *head, const void *uniqueKey, const void *data) {
@@ -175,10 +176,12 @@ SwapUniqueKey *SwapUniqueKeyCreate() {
   return uniqueKey;
 }
 
+
+// parentPTE != NULL is only valid if called from the copyuvm
 BOOL SwapDataAddPTE(SwapData *swapData, pte_t **parentPTE, pte_t **PTE) {
 
   LinkedListNode *node;
-  if ((node = LinkedListGet(swapData->PTEs, parentPTE)) != NULL) {
+  if (parentPTE == NULL || (node = LinkedListGet(swapData->PTEs, parentPTE)) != NULL) {
     LinkedListAdd(swapData->PTEs, PTE, NULL);
     return TRUE;
   }

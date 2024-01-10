@@ -124,6 +124,7 @@ filewrite(struct file *f, char *addr, int n) {
     // and 2 blocks of slop for non-aligned writes.
     // this really belongs lower down, since writei()
     // might be writing a device like the console.
+
     int max = ((MAXOPBLOCKS - 1 - 1 - 2) / 2) * 512;
     int i = 0;
     while (i < n) {
@@ -205,9 +206,12 @@ int filetruncate(struct file *f, off_t length) {
   uint size = f->ip->size;
   iunlock(f->ip);
   end_op();
+//  cprintf("swapfile.bmap_size %d\n", swapfile.bmap_size);
 
-  if (size < length)
+  if (size > length)
     return -1;
+  else if(size == length)
+    return 0;
 
   for (; length > 0; length -= sizeof(zero_array)) {
     if (filewrite(f, (char *) zero_array, MIN(sizeof(zero_array), length)) < 0)

@@ -21,6 +21,9 @@ struct swap_s {
 #define SWAP_LRU
 #define SWAP_FIFO
 
+#define SWAPFILE
+void swapinit_file(void);
+void swapwrite_file(const char *buf, void * la, pte_t * buf_pte);
 
 
 #endif //XV6_PUBLIC_SWAP_H

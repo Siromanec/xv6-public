@@ -39,6 +39,8 @@ size_t SwapMapHash(const UnorderedMap *map, const SwapUniqueKey *key);
 
 void SwapMapInit(UnorderedMap *map);
 
+void SwapMapAdd(const void *key, pte_t **ppte, pte_t **pte);
+void SwapMapRemove(const void *key, pte_t **pte);
 
 void swapmap_add_remove_test();
 

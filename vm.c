@@ -63,7 +63,7 @@ walkpgdir(pde_t *pgdir, const void *va, BOOL alloc) {
     pgtab = (pte_t *) P2V(PTE_ADDR(*pde));
   } else {
     if (!alloc || (pgtab = (pte_t *) kalloc()) == 0)
-      return 0;
+      return NULL;
     // Make sure all those PTE_P bits are zero.
     memset(pgtab, 0, PGSIZE);
     // The permissions here are overly generous, but they can
@@ -90,6 +90,11 @@ mappages(pde_t *pgdir, void *va, uint size, uint pa, int perm) {
     if ((*pte & PTE_P) && !(*pte & PTE_C) && !(*pte & PTE_S)) // if it is a copy on write or swap it is not a remap
       panic("remap");
     *pte = pa | perm | PTE_P;
+//    pa
+    if( (uint) a < KERNBASE) {
+      //
+      get_pd(pa)->la = (uint) a;
+    }
     if (a == last)
       break;
     a += PGSIZE;
@@ -234,6 +239,7 @@ loaduvm(pde_t *pgdir, char *addr, struct inode *ip, uint offset, uint sz) {
 // newsz, which need not be page aligned.  Returns new size or 0 on error.
 int
 allocuvm(pde_t *pgdir, uint oldsz, uint newsz) {
+
   char *mem;
   uint a;
 
@@ -351,14 +357,11 @@ copyuvm(pde_t *pgdir, uint sz) {
     pa = PTE_ADDR(*pte);
     flags = PTE_FLAGS(*pte);// & ~PTE_W) | PTE_C; // copy-on-write child
 
-//    if ((mem = kalloc()) == 0)
-//      goto bad;
-//    memmove(mem, (char *) P2V(pa), PGSIZE);
+    // TODO update swapmap
     if (mappages(d, (void *) i, PGSIZE, pa, flags) < 0) {
-//      kfree(mem);
       goto bad;
     }
-//    cprintf("i'm a little troublemaker\n");
+
     inc_ref_pa(pa); // no errors occured
 
     flush_tlb();// loads parent tlb
@@ -480,12 +483,14 @@ int swap() {
           char *va = (P2V(PTE_ADDR(*pte)));
 //          if (va >= end) {
 //          *pte &= PTE_FLAGS(*pte);
-          *pte &= ~PTE_P; // must be set to not present to cause a pagefault
-          *pte |= PTE_S;
+//          *pte &= ~PTE_P; // must be set to not present to cause a pagefault
+//          *pte |= PTE_S;
 #ifdef DEBUG_SWAP
           cprintf("swap: swapping proc: %s va: 0x%x\n", p->name, a);
 #endif
-          swapwrite(va, (void *) a);
+
+          swapwrite_file(va, (void *) a, pte);
+//          swapwrite(va, (void *) a);
 
           kfree(va); //TODO
           swapped_page_num++;
@@ -622,7 +627,7 @@ int handle_pagefault(uint addr, uint err) {
     return lazyalloc(va, p);
   }
   int result = -1;
-  if ((*pte & PTE_S)) { // it was a presence error
+  if ((*pte & PTE_S)) {
 #ifdef DEBUG_T_PGFLT
     cprintf("trying to restore the swapped page\n");
 #endif
@@ -665,55 +670,51 @@ flush_tlb(void) {
 //  return 0;
 //}
 
-typedef struct pa_pte_iterator {
-  iterator_t iterator;
-  page_data_t pd; // never use ptr; is modified by iterator
-  uint pa;
-} pa_pte_iterator_t;
-
-void pa_pte_iterator_init(pa_pte_iterator_t *iterator, const page_data_t * const pd, uint pa) {
+void pa_pte_iterator_init(pa_pte_iterator_t *iterator, const page_data_t *const pd, uint pa) {
 
   if (iterator == NULL || pd == NULL)
     return;
 
   iterator->pa = pa;
-  if ((uint) pd->ref_count == 1) {
-    iterator->iterator.item_size = 0;
-    iterator->iterator.next_item = NULL;
-    iterator->iterator.end = (void *) NULL + sizeof(struct proc);
-//    iterator->pd = NULL;
-  } else {
-    iterator->iterator.item_size = sizeof(struct proc);
-    iterator->iterator.end = ptable.proc + sizeof(ptable.proc) + sizeof(struct proc);
-    iterator->iterator.next_item = ptable.proc; /* TODO pointer to first used process in ptable*/
-    iterator->pd = *pd;
-  }
-};
-
+//  if ((uint) pd->ref_count == 1) {
+//    iterator->iterator.item_size = 0;
+//    iterator->iterator.next_item = NULL;
+//    iterator->iterator.end = (void *) NULL + sizeof(struct proc);
+////    iterator->pd = NULL;
+//  } else {
+  iterator->iterator.item_size = sizeof(struct proc);
+  iterator->iterator.end = ((void *) ptable.proc) + sizeof(ptable.proc) + sizeof(struct proc);
+  iterator->iterator.next_item = ptable.proc; /* pointer to first used process in ptable*/
+  iterator->pd = *pd;
+//  }
+}
 
 BOOL pa_pte_iterator_has_next(pa_pte_iterator_t *iterator) {
-  return iterator->pd.ref_count != 0 && iterator_has_next((iterator_t *)iterator, NULL);
-};
+  return iterator->pd.ref_count != 0 && iterator_has_next((iterator_t *) iterator, NULL);
+}
 
-void * pa_pte_iterator_get_next(pa_pte_iterator_t *iterator) {
+void *pa_pte_iterator_get_next(pa_pte_iterator_t *iterator) {
   struct proc *p;
   pte_t *pte;
 
-  if (iterator->iterator.next_item == NULL) {
-    iterator->iterator.next_item = iterator->iterator.end;
-    iterator->pd.ref_count--;
-
-    return iterator->pd.pte;
-  }
+//  if (iterator->iterator.next_item == NULL) {
+//
+//    // if only one reference use pte
+//    iterator->iterator.next_item = iterator->iterator.end;
+//    iterator->pd.ref_count--;
+//
+//    return iterator->pd.pte;
+//  }
 //  acquire(&ptable.lock);
   p = (struct proc *) iterator->iterator.next_item;
-  for (; p != iterator->iterator.end; p += sizeof(struct proc)) {
+  for (; p != iterator->iterator.end; p++) {
     if (p->state == UNUSED)
       continue;
-    pte = walkpgdir(p->pgdir, (void *) iterator->pd.va, FALSE);
-
-    if (PTE_ADDR(pte) == iterator->pa) {
-      iterator->iterator.next_item = p + sizeof(struct proc);
+    pte = walkpgdir(p->pgdir, (void *) iterator->pd.la, FALSE);
+    if (pte == NULL)
+      continue;
+    if (!(*pte & PTE_S) && V2P(PTE_ADDR(*pte)) == iterator->pa) {
+      iterator->iterator.next_item = p + 1;
       iterator->pd.ref_count--;
       return pte;
     }
@@ -722,16 +723,14 @@ void * pa_pte_iterator_get_next(pa_pte_iterator_t *iterator) {
 
 
   return NULL;
-};
+}
 
-
-void interract_with_pte(int (*callback)(pte_t *)){
+void interract_with_pte(uint pa, page_data_t *pd, int (*callback)(pte_t *)) {
   pa_pte_iterator_t iterator;
-  page_data_t pd = {NULL, {NULL}};
-  pa_pte_iterator_init(&iterator, &pd, NULL);
+  pa_pte_iterator_init(&iterator, pd, pa);
 
   while (pa_pte_iterator_has_next(&iterator)) {
-    pte_t * pte = pa_pte_iterator_get_next(&iterator);
+    pte_t *pte = pa_pte_iterator_get_next(&iterator);
     callback(pte);
   }
 }
