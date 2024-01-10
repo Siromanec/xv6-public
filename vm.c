@@ -74,6 +74,18 @@ walkpgdir(pde_t *pgdir, const void *va, BOOL alloc) {
   return &pgtab[PTX(va)];
 }
 
+
+void mappage(char * la, pte_t * pte, uint pa, int perm) {
+  if ((*pte & PTE_P) && !(*pte & PTE_C) && !(*pte & PTE_S)) // if it is a copy on write or swap it is not a remap
+    panic("remap");
+  *pte = pa | perm | PTE_P;
+//    pa
+  if( (uint) la < KERNBASE) {
+    //
+    get_pd(pa)->la = (uint) la;
+//    cprintf("mappage: la = 0x%x\n", la);
+  }
+}
 // Create PTEs for virtual addresses starting at va that refer to
 // physical addresses starting at pa. va and size might not
 // be page-aligned.
@@ -87,14 +99,7 @@ mappages(pde_t *pgdir, void *va, uint size, uint pa, int perm) {
   for (;;) {
     if ((pte = walkpgdir(pgdir, a, TRUE)) == 0)
       return -1;
-    if ((*pte & PTE_P) && !(*pte & PTE_C) && !(*pte & PTE_S)) // if it is a copy on write or swap it is not a remap
-      panic("remap");
-    *pte = pa | perm | PTE_P;
-//    pa
-    if( (uint) a < KERNBASE) {
-      //
-      get_pd(pa)->la = (uint) a;
-    }
+    mappage(a, pte, pa, perm);
     if (a == last)
       break;
     a += PGSIZE;
@@ -490,9 +495,9 @@ int swap() {
 #endif
 
           swapwrite_file(va, (void *) a, pte);
-//          swapwrite(va, (void *) a);
-
-//          kfree(va); //TODO
+          {//          swapwrite(va, (void *) a);
+//          kfree(va); //TODO}
+          }
           swapped_page_num++;
 //          } // clearing physical address to avoid anomalies
 
@@ -530,14 +535,15 @@ int swaprestore(void *va, pte_t *pte, pde_t *pgdir) {
     cprintf("swaprestore: pre: 0x%x\n", (PTE_ADDR(*pte)));
 #endif
 
-  char *pa = swapread(va, PTE_ADDR(*pte));
-  *pte &= (~PTE_S);
-  uint flags = PTE_FLAGS(*pte);
-  if (mappages(pgdir, (char *) va, PGSIZE, V2P(pa), flags) < 0) {
-    cprintf("swaprestore out of memory (1)\n");
-    kfree(pa);
-    return -1;
-  }
+//  char *pa = swapread(va, PTE_ADDR(*pte));
+//  *pte &= (~PTE_S);
+//  int flags = PTE_FLAGS(*pte);
+//  if (mappages(pgdir, (char *) va, PGSIZE, V2P(pa), flags) < 0) {
+//    cprintf("swaprestore out of memory (1)\n");
+//    kfree(pa);
+//    return -1;
+//  }
+  swapread_file(va, pte);
 #ifdef DEBUG_SWAPRESTORE
   cprintf("swaprestore: post: 0x%x\n", PTE_ADDR(*pte));
 #endif

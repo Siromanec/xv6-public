@@ -16,13 +16,16 @@ LinkedListHead defaultLLPTE = {
 LinkedListNode *LinkedListNodeAlloc(LinkedListHead *head) {
   LinkedListNode *node;
   node = kmalloc(sizeof(LinkedListNode));
-
+  memset(node, 0, sizeof(LinkedListNode));
   if (head->vtable != NULL) {
     node->uniqueKey = head->vtable->keyAlloc();
     node->data = head->vtable->dataAlloc();
   } else {
     node->uniqueKey = kmalloc(head->keySize);
     node->data = kmalloc(head->dataSize);
+    memset(node->uniqueKey, 0, head->keySize);
+    memset(node->data, 0, head->dataSize);
+
   }
 
   return node;
@@ -118,6 +121,7 @@ LinkedListNode *LinkedListRemove(LinkedListHead *head, void *uniqueKey) {
 LinkedListHead *LinkedListAlloc() {
   LinkedListHead *list;
   list = kmalloc(sizeof(LinkedListHead));
+  memset(list, 0, sizeof(LinkedListHead));
   return list;
 }
 
@@ -134,6 +138,8 @@ void LinkedListFree(LinkedListHead *list) {
 SwapData *SwapDataAlloc() {
   SwapData *swapData;
   swapData = kmalloc(sizeof(SwapData));
+  memset(swapData, 0, sizeof(SwapData));
+
   swapData->PTEs = LinkedListAlloc();
   return swapData;
 }
@@ -157,6 +163,7 @@ SwapData *SwapDataCreate() {
 SwapUniqueKey *SwapUniqueKeyAlloc() {
   SwapUniqueKey *uniqueKey;
   uniqueKey = kmalloc(sizeof(SwapUniqueKey));
+  memset(uniqueKey, 0, sizeof(SwapUniqueKey));
   return uniqueKey;
 }
 

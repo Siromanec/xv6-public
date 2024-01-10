@@ -24,6 +24,10 @@ struct swap_s {
 #define SWAPFILE
 void swapinit_file(void);
 void swapwrite_file(const char *buf, void * la, pte_t * buf_pte);
+void swapread_file(void *la, pte_t *buf_pte);
+void mappage(char * la, pte_t * pte, uint pa, int perm);
+
+//void            mappage(char * la, pte_t * pte, uint pa, int perm);
 
 
 #endif //XV6_PUBLIC_SWAP_H

@@ -185,6 +185,5 @@ struct gatedesc {
 
 #endif
 
-
 #define SWAP_INTERVAL 1024 // from my modest tests, this is n ticks in 10 secondes
 #endif //XV6_PUBLIC_MMU_H

@@ -954,6 +954,8 @@ void swapwrite_file(const char *buf, void *la, pte_t *buf_pte) {
 
 }
 
+
+
 // assumes input buffer is of size PGSIZE
 void swapwrite(const char *buf, void *va) {
   struct swap_s *s;
@@ -992,8 +994,72 @@ void swapwrite(const char *buf, void *va) {
 
 }
 
-//swapinherit?
-void swapcopy(struct proc *parent, struct proc *child) {
+/**
+ * @param buf -- the physical address of the page
+ * @param la -- logical address of the page
+ * @param pte -- pointer for the page table entry
+ * @modifies swapfile; pte flags; swapMap; phys_page_table; frees the memory*/
+void
+swapread_file(void *la, pte_t *buf_pte) {
+  uint old_pa = PTE_ADDR(*buf_pte);
+
+
+  SwapUniqueKey key = {.pa = old_pa, .log_a = (uint) la};
+
+  cprintf("pa: 0x%x\n", old_pa/PGSIZE);
+
+  acquire(&swapMap.lock);
+  /*get node to which ptes will be written*/
+
+  LinkedListHead *bin = UnorderedMapGetBin(&swapMap, &key);
+
+//  LinkedListAdd(bin, &key, NULL);
+
+  LinkedListNode *node = LinkedListGet(bin, &key);
+  if (node == NULL) {
+      panic("swapmap: key not found\n");
+  }
+
+  SwapData *data;
+  void * new_va = kalloc();
+  page_data_t * pd = get_pd(V2P(new_va));
+
+  do {
+    data = node->data;
+
+    LinkedListNode * fitting_pte_entry = LinkedListGet(data->PTEs, &buf_pte);
+    if(fitting_pte_entry == NULL){
+      node = LinkedListNodeGetNextMatching(bin->start, bin, &key);
+      continue;
+    }
+    LinkedListNode * pte_entry;
+    pd->ref_count = data->PTEs->length;
+    do {
+      pte_entry = LinkedListNodeGetNextMatching(data->PTEs->start, data->PTEs, NULL);
+      if(pte_entry ==  NULL)
+        break;
+      pte_t * pte = *(pte_t **)(pte_entry->data);
+      *pte &= (~PTE_S);
+      int flags = PTE_FLAGS(*pte);
+      mappage(la, pte, V2P(new_va), flags);
+    }
+    while (TRUE);
+    break;
+  }
+  while (node != NULL);
+
+  if (node == NULL) {
+    panic("swapread_file: did not find pte");
+  }
+  uint pageNo = data->swapfilePageNo;
+  LinkedListNodeRemoveNextMatching(node, bin, NULL);
+
+
+  release(&swapMap.lock);
+
+
+  swapfile_read_page(new_va, pageNo);
+
 
 }
 

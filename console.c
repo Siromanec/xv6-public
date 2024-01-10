@@ -49,7 +49,7 @@ printint(int xx, int base, int sign) {
 }
 //PAGEBREAK: 50
 
-// Print to the console. only understands %d, %x, %p, %s.
+// Print to the console. only understands %d, %x, %p, %s %b.
 void
 cprintf(char *fmt, ...) {
   int i, c, locking;
