@@ -2,19 +2,19 @@
 - Виконував: Іванов Сергій https://github.com/Siromanec
 # xv6-mem:
 
-## lazy-allocation
+# lazy-allocation
 
-lazyalloc in vm.c
+## lazyalloc
+allocate memory if the address belongs to the process's address space
+# copy-on-write
 
-## copy-on-write
-
-copy_on_write in vm.c
-
-## swap
+## copy_on_write
+copy the page in allocated memory and map it into the process's memory.
+# swap
 
 in vm.c
 
-swaps out not accessed pages;
+swaps out not-accessed pages;
 
 ## swaprestore
 
